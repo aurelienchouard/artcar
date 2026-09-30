@@ -1,23 +1,6 @@
-# OS / editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-*.swp
-
-# Env / secrets
-.env
-.env.*
-!.env.example
-
-# Dependencies & builds
 node_modules/
-dist/
-build/
+tests/shots/
 __pycache__/
-*.pyc
-.venv/
-venv/
-
-# Logs
-*.log
+.DS_Store
+*.artcar.json
+*.glb
