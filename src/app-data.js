@@ -186,15 +186,12 @@ function chassisDefaults(id) {
 const BASE = { ...STYLE, ...chassisDefaults('express'), name: 'Penguin-style Express' };
 
 const PRESETS = [
-  { id: 'haulster', label: 'Haulster starter, shade lounge', values: () => ({ ...STYLE, ...chassisDefaults('haulster'), name: 'Haulster shade lounge' }) },
-  { id: 'bigfoot', label: 'Bigfoot XL starter, two-level', values: () => ({ ...STYLE, ...chassisDefaults('bigfoot'), name: 'Bigfoot XL two-level' }) },
-  { id: 'mc480', label: 'MC-480 starter, shade lounge', values: () => ({ ...STYLE, ...chassisDefaults('mc480'), name: 'MC-480 shade lounge' }) },
-  { id: 'npr', label: 'NPR-HD starter', values: () => ({ ...STYLE, ...chassisDefaults('npr'), name: 'Open-cab NPR-HD' }) },
-  { id: 'express', label: 'Express starter, penguin-style', values: () => ({ ...STYLE, ...chassisDefaults('express'), name: 'Penguin-style Express' }) },
-  { id: 'f350', label: 'F-350 starter', values: () => ({ ...STYLE, ...chassisDefaults('f350'), name: 'Open-cab F-350' }) },
-  { id: 'indigo', label: 'Indigo night colors', keep: true, values: () => ({
-      frameColor: '#17191e', tubeColor: '#202532', fabricColor: '#34405f', accentColor: '#c9a24c', rugColor: '#5b5f70',
-      ledColor: '#3fd3ff', ledColor2: '#ff3fa0', ledMode: 'sunset', ribStyle: 'second', mood: 'night' }) },
+  { id: 'haulster', label: 'Haulster, shade lounge', values: () => ({ ...STYLE, ...chassisDefaults('haulster'), name: 'Haulster shade lounge' }) },
+  { id: 'bigfoot', label: 'Bigfoot XL, two-level', values: () => ({ ...STYLE, ...chassisDefaults('bigfoot'), name: 'Bigfoot XL two-level' }) },
+  { id: 'mc480', label: 'MC-480, shade lounge', values: () => ({ ...STYLE, ...chassisDefaults('mc480'), name: 'MC-480 shade lounge' }) },
+  { id: 'npr', label: 'NPR-HD, open cab', values: () => ({ ...STYLE, ...chassisDefaults('npr'), name: 'Open-cab NPR-HD' }) },
+  { id: 'express', label: 'Express, penguin-style', values: () => ({ ...STYLE, ...chassisDefaults('express'), name: 'Penguin-style Express' }) },
+  { id: 'f350', label: 'F-350, open cab', values: () => ({ ...STYLE, ...chassisDefaults('f350'), name: 'Open-cab F-350' }) },
 ];
 
 /* Deck heights and usable deck lengths are typical US figures. */

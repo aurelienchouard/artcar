@@ -44,7 +44,7 @@ with sync_playwright() as p:
             r = pg.evaluate(rebuild)
             if errs: print('ERR', ch, c, errs[:3]); errs.clear()
         print(ch, 'combos ok, last:', r)
-    for pid in ['haulster','bigfoot','mc480','npr','express','f350','indigo']:
+    for pid in ['haulster','bigfoot','mc480','npr','express','f350']:
         pg.select_option('#preset', pid); pg.wait_for_timeout(200)
         print('preset', pid, pg.evaluate("window.__artcar.state().chassis"), pg.evaluate("window.__artcar.state().name"))
     for v in ['hero','top','front','rear','left','right','lounge','cockpit','roof']:

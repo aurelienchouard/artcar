@@ -57,6 +57,10 @@ select option{background:var(--dusk-solid);color:var(--alkali)}
 .seg button:hover{color:var(--alkali)}
 .seg button[aria-pressed="true"]{background:var(--alkali);color:var(--ink);font-weight:600}
 .panel-toggle{padding:8px 15px;border-radius:11px}
+/* Glow while the panel is closed so the Design button is easy to find, especially on phones */
+.panel-toggle[aria-expanded="false"]{color:var(--on-led);background:var(--led);border-color:var(--led);font-weight:600;animation:toggle-glow 2.2s ease-in-out infinite}
+@keyframes toggle-glow{0%,100%{box-shadow:0 0 6px 1px rgba(255,174,87,.55),0 0 0 0 rgba(255,174,87,.35)}50%{box-shadow:0 0 18px 5px rgba(255,174,87,.85),0 0 0 7px rgba(255,174,87,0)}}
+@media (prefers-reduced-motion:reduce){.panel-toggle[aria-expanded="false"]{animation:none;box-shadow:0 0 14px 3px rgba(255,174,87,.7)}}
 
 /* panel */
 .panel{position:fixed;z-index:4;top:calc(var(--gap) + 52px + env(safe-area-inset-top,0px));right:var(--gap);bottom:calc(var(--gap) + env(safe-area-inset-bottom,0px));width:var(--panel-w);border-radius:16px;display:flex;flex-direction:column;overflow:hidden}

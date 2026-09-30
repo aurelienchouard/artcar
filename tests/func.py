@@ -36,7 +36,7 @@ with sync_playwright() as p:
         pg.wait_for_timeout(400)
         info = pg.evaluate("(()=>{const i=window.__artcar.car.info; return [i.seatsLow,i.seatsRoof,+window.__artcar.car.bbox.max.y.toFixed(2),+i.widthMax.toFixed(2)]})()")
         print('combo', c[:48], '->', info)
-    for pid in ['npr','indigo','bigfoot']:
+    for pid in ['npr','bigfoot']:
         pg.select_option('#preset', pid); pg.wait_for_timeout(400)
         st = pg.evaluate("window.__artcar.state()")
         print('preset', pid, st['name'], st['width'], st['mood'], pg.evaluate("document.getElementById('stats').innerText.replace(/\\n/g,' | ')"))
