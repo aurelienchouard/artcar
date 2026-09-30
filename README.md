@@ -8,7 +8,10 @@ Isuzu NPR-HD, Chevrolet Express 3500 cutaway, Ford F-350 DRW.
 
 ## Use it
 
-Open `dist/index.html` in any modern browser. Everything is inlined, so it works with no internet.
+Online: **https://aurelienchouard.github.io/artcar/** (GitHub Pages, rebuilt from `main` on every push by
+`.github/workflows/pages.yml`).
+
+Or open `dist/index.html` in any modern browser. Everything is inlined, so it works with no internet.
 On the camp network it lives at **http://aurora.brc/artcar/**.
 
 ## Put it on GitHub (from your Mac)
