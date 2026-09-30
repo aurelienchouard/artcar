@@ -18,7 +18,7 @@ const RIDER_KG = 79;   // 175 lb
    Numbers marked est. are typical values, not manufacturer data. */
 const CHASSIS = {
   haulster: {
-    label: 'Cushman Haulster, gas', short: 'Haulster', kind: 'cart',
+    label: 'Cushman Haulster utility cart, gas', short: 'Cushman Haulster', kind: 'cart',
     summary: '2012-generation heavy-duty utility truck: 2,400 lb capacity, 88″ wheelbase, 20.5″ tires, gas 3-cylinder, 20 mph. Older Haulsters are rated far lower (about 1,490 lb).',
     spec: { wheelbase: 2.24, track: 1.09, wheelDia: 0.52, frameHeight: 0.70 },   // 88.2″ WB, 42″/44″ track, 20.5×8-10; deck height est.
     dual: false, buildup: 0.12, ba: 0.55, length: 3.45, width: 1.35, cgY: 0.5,     // 136″ × 53″; BA and CG est.
@@ -37,7 +37,7 @@ const CHASSIS = {
     },
   },
   bigfoot: {
-    label: 'Taylor-Dunn Bigfoot XL', short: 'Bigfoot XL', kind: 'cart',
+    label: 'Taylor-Dunn Bigfoot XL utility cart, electric', short: 'Taylor-Dunn Bigfoot XL', kind: 'cart',
     summary: 'Electric utility vehicle, 3,000 lb load, open two-seat compartment, 18 mph.',
     spec: { wheelbase: 1.575, track: 1.17, wheelDia: 0.52, frameHeight: 0.70 },   // 62″ WB, 20.5″ tires, 27.5″ deck; track est.
     dual: false, buildup: 0.12, ba: 0.80, length: 3.31, width: 1.45, cgY: 0.45,              // BA est., 130.5″ × 57″
@@ -56,7 +56,7 @@ const CHASSIS = {
     },
   },
   mc480: {
-    label: 'Motrec MC-480 48V HD', short: 'MC-480', kind: 'cart',
+    label: 'Motrec MC-480 utility cart, electric', short: 'Motrec MC-480', kind: 'cart',
     summary: 'Electric burden carrier, 5,000 lb load, open two-seat compartment, 10 mph.',
     spec: { wheelbase: 1.42, track: 0.98, wheelDia: 0.46, frameHeight: 0.79 },    // 56″ WB, 31″ deck; track and tires est.
     dual: false, buildup: 0.12, ba: 0.68, length: 3.2, width: 1.14, cgY: 0.45,               // 126″ × 45″; BA est.
@@ -75,7 +75,7 @@ const CHASSIS = {
     },
   },
   npr: {
-    label: 'Isuzu NPR-HD, 176″ wheelbase', short: 'NPR-HD', kind: 'cabover', removableCab: true,
+    label: 'Isuzu NPR-HD box truck, gas or diesel, 176″ wheelbase', short: 'Isuzu NPR-HD', kind: 'cabover', removableCab: true,
     summary: 'Class 4 low cab forward, 14,500 lb GVWR. The driver sits over the front axle, so the front section is short.',
     spec: { wheelbase: 4.47, track: 1.68, wheelDia: 0.81, frameHeight: 0.78 },    // 176″ WB, 225/70R19.5; track and frame est.
     dual: true, buildup: 0.18, ba: 1.22, length: 6.8, width: 2.04, cgY: 0.85,
@@ -94,7 +94,7 @@ const CHASSIS = {
     },
   },
   express: {
-    label: 'Chevrolet Express 3500 cutaway, 159″ wheelbase', short: 'Express 3500', kind: 'conventional', removableCab: true, doghouse: true,
+    label: 'Chevy Express 3500 cutaway van, gas, 159″ wheelbase', short: 'Chevy Express', kind: 'conventional', removableCab: true, doghouse: true,
     summary: 'Class 3 van cutaway, 12,300 lb GVWR, LT225/75R16 dual rear wheels. The penguin is built on one of these.',
     spec: { wheelbase: 4.04, track: 1.75, wheelDia: 0.74, frameHeight: 0.70 },    // 159″ WB, 225/75R16; track and frame est.
     dual: true, buildup: 0.16, ba: 0.93, length: 6.6, width: 2.02, cgY: 0.75,               // cab back 59″ behind the front axle; BA est.
@@ -113,7 +113,7 @@ const CHASSIS = {
     },
   },
   f350: {
-    label: 'Ford F-350 DRW chassis cab, 169″ wheelbase', short: 'F-350', kind: 'conventional', removableCab: true,
+    label: 'Ford F-350 dually pickup, gas or diesel, 169″ wheelbase', short: 'Ford F-350', kind: 'conventional', removableCab: true,
     summary: 'Class 3 regular cab chassis, 14,000 lb GVWR, LT245/75R17 dual rear wheels. The long hood makes the front section long.',
     spec: { wheelbase: 4.29, track: 1.74, wheelDia: 0.80, frameHeight: 0.84 },    // 169″ WB, 84″ CA; track and frame est.
     dual: true, buildup: 0.18, ba: 0.97, length: 6.47, width: 2.03, cgY: 0.8,               // 38.3″ front overhang, 80″ wide
@@ -183,15 +183,15 @@ function chassisDefaults(id) {
   const c = CHASSIS[id];
   return { chassis: id, ...c.spec, ...c.body };
 }
-const BASE = { ...STYLE, ...chassisDefaults('express'), name: 'Penguin-style Express' };
+const BASE = { ...STYLE, ...chassisDefaults('express'), name: 'Chevy Express, roof deck' };
 
 const PRESETS = [
-  { id: 'haulster', label: 'Haulster, shade lounge', values: () => ({ ...STYLE, ...chassisDefaults('haulster'), name: 'Haulster shade lounge' }) },
-  { id: 'bigfoot', label: 'Bigfoot XL, two-level', values: () => ({ ...STYLE, ...chassisDefaults('bigfoot'), name: 'Bigfoot XL two-level' }) },
-  { id: 'mc480', label: 'MC-480, shade lounge', values: () => ({ ...STYLE, ...chassisDefaults('mc480'), name: 'MC-480 shade lounge' }) },
-  { id: 'npr', label: 'NPR-HD, open cab', values: () => ({ ...STYLE, ...chassisDefaults('npr'), name: 'Open-cab NPR-HD' }) },
-  { id: 'express', label: 'Express, penguin-style', values: () => ({ ...STYLE, ...chassisDefaults('express'), name: 'Penguin-style Express' }) },
-  { id: 'f350', label: 'F-350, open cab', values: () => ({ ...STYLE, ...chassisDefaults('f350'), name: 'Open-cab F-350' }) },
+  { id: 'haulster', label: 'Cushman Haulster cart, shade only', values: () => ({ ...STYLE, ...chassisDefaults('haulster'), name: 'Cushman Haulster, shade only' }) },
+  { id: 'bigfoot', label: 'Taylor-Dunn Bigfoot cart, roof deck', values: () => ({ ...STYLE, ...chassisDefaults('bigfoot'), name: 'Taylor-Dunn Bigfoot, roof deck' }) },
+  { id: 'mc480', label: 'Motrec MC-480 cart, shade only', values: () => ({ ...STYLE, ...chassisDefaults('mc480'), name: 'Motrec MC-480, shade only' }) },
+  { id: 'npr', label: 'Isuzu NPR box truck, roof deck', values: () => ({ ...STYLE, ...chassisDefaults('npr'), name: 'Isuzu NPR, roof deck' }) },
+  { id: 'express', label: 'Chevy Express van, roof deck', values: () => ({ ...STYLE, ...chassisDefaults('express'), name: 'Chevy Express, roof deck' }) },
+  { id: 'f350', label: 'Ford F-350 pickup, roof deck', values: () => ({ ...STYLE, ...chassisDefaults('f350'), name: 'Ford F-350, roof deck' }) },
 ];
 
 /* Deck heights and usable deck lengths are typical US figures. */
