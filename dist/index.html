@@ -182,7 +182,7 @@ dialog::backdrop{background:rgba(12,15,24,.62)}
 }
 </style>
 </head>
-<body data-mood="day">
+<body data-mood="night">
 <canvas id="gl" tabindex="0" aria-label="3D view of the art car. Drag to orbit, scroll to zoom."></canvas>
 
 <div class="loading" id="loading">Building the model…</div>
@@ -4626,7 +4626,7 @@ const STYLE = {
   // finish
   frameColor: '#2b2d31', tubeColor: '#3a3d42', fabricColor: '#d9cfbf', accentColor: '#b8702c', rugColor: '#b19a77', cabColor: '#e9e7e2', cabMatch: true, shadeColor: '#34363a',
   // scene + checks
-  mood: 'day', units: 'imperial', riderTarget: 20,
+  mood: 'night', units: 'imperial', riderTarget: 20,
 };
 /* How far the body may grow on a given chassis: rear overhang up to 60% of the wheelbase on trucks and 70% on carts
    (or the vehicle's own rear overhang plus 6″ if that's more), about 1′ past the bumper, and 1.6′ past the vehicle on each side. */
@@ -4647,7 +4647,7 @@ function chassisDefaults(id) {
   const c = CHASSIS[id];
   return { chassis: id, ...c.spec, ...c.body };
 }
-const BASE = { ...STYLE, ...chassisDefaults('bigfoot'), name: 'Bigfoot XL two-level' };
+const BASE = { ...STYLE, ...chassisDefaults('express'), name: 'Penguin-style Express' };
 
 const PRESETS = [
   { id: 'haulster', label: 'Haulster starter, shade lounge', values: () => ({ ...STYLE, ...chassisDefaults('haulster'), name: 'Haulster shade lounge' }) },
@@ -4802,7 +4802,7 @@ function sanitize(input) {
       if (/^#[0-9a-f]{6}$/i.test(v)) out[k] = v;
     } else out[k] = v;
   }
-  if (!['day', 'dusk', 'night'].includes(out.mood)) out.mood = 'day';
+  if (!['day', 'dusk', 'night'].includes(out.mood)) out.mood = 'night';
   const lim = bodyLimits(out);
   out.bodyFront = clamp(out.bodyFront, ...lim.bodyFront);
   const lim2 = bodyLimits(out);
