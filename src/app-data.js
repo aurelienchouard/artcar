@@ -158,7 +158,7 @@ const STYLE = {
   // transport
   transportPreview: false,
   // lighting
-  ledMode: 'solid', ledColor: '#ffae57', ledColor2: '#8fd3ff', ledLevel: 1.0,
+  ledMode: 'sunset', ledColor: '#ffae57', ledColor2: '#8fd3ff', ledLevel: 0.5,
   // finish
   frameColor: '#2b2d31', tubeColor: '#3a3d42', fabricColor: '#d9cfbf', accentColor: '#b8702c', rugColor: '#b19a77', cabColor: '#e9e7e2', cabMatch: true, shadeColor: '#34363a',
   // scene + checks
