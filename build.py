@@ -13,4 +13,6 @@ out = out.replace('<script>/*__THREE__*/</script>', '<script>' + three + '</scri
 out = out.replace('<script>/*__APP__*/</script>', '<script>' + app + '</script>')
 (root / 'dist').mkdir(exist_ok=True)
 (root / 'dist' / 'index.html').write_text(out)
+# Same page at the repo root, so GitHub Pages serves the studio even when it deploys straight from the branch.
+(root / 'index.html').write_text(out)
 print('dist/index.html', len(out) // 1024, 'KB')

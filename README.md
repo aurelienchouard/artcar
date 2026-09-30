@@ -16,7 +16,7 @@ Isuzu NPR-HD, Chevrolet Express 3500 cutaway, Ford F-350 DRW.
 - `src/app-model.js`: the 3D model, cut list, weights, rider counts and tipping estimate
 - `src/app-main.js`: UI, views, readouts, save/open, render sheet, 3D export, drive mode
 - `src/style.css`, `src/index.template.html`
-- `python3 build.py` builds `dist/index.html`
+- `python3 build.py` builds `dist/index.html` and the identical `index.html` at the root (what GitHub Pages serves)
 - `npm install && npm run bundle-three` rebuilds `vendor/three-bundle.js` (three r169); only needed to change three.js
 
 Every push to `main` rebuilds the site through `.github/workflows/pages.yml`.
