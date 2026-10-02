@@ -14,6 +14,7 @@ export const CARDS = [
       d.name = 'Shinkansen, as dreamed';
       d.brief = { ...d.brief, effort: 1, budget: 2 };
       d.kits.theme = kit('shinkansen', { nose: 3.5, height: 2.3, material: 'fabric', window: false });
+      d.structure.width = 2.5;
       return d;
     },
     expect: [

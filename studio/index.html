@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Art Car Studio</title>
+<meta name="description" content="Plan a Burning Man art car: see what each choice costs in payload, height, transport, money and effort, and why.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>/*__CSS__*/</style>
+</head>
+<body data-mood="night">
+<canvas id="gl" tabindex="0" aria-label="3D view of the art car. Drag to orbit, scroll to zoom."></canvas>
+<div class="loading" id="loading">Building the model…</div>
+
+<header class="topbar glass">
+  <div class="brand"><span class="app-title">Art Car Studio</span><span class="ver" title="Version 2">v2</span></div>
+  <input id="designName" class="name" aria-label="Design name" spellcheck="false" autocomplete="off">
+  <div class="top-actions">
+    <button type="button" class="btn primary" id="startBtn">Start from…</button>
+    <div class="menu-wrap">
+      <button type="button" class="btn" id="fileBtn" aria-haspopup="true" aria-expanded="false">File</button>
+      <div class="menu glass" id="fileMenu" hidden>
+        <button type="button" id="saveBtn">Save design (.json)</button>
+        <button type="button" id="openBtn">Open design…</button>
+        <button type="button" id="shareBtn">Copy share link</button>
+        <button type="button" id="glbBtn">Export 3D model (.glb)</button>
+        <button type="button" id="undoBtn">Undo last change</button>
+      </div>
+    </div>
+    <button type="button" class="btn" id="compareBtn">Compare</button>
+    <div class="seg glass-in" id="moodSeg" role="group" aria-label="Time of day">
+      <button type="button" data-mood="day">Day</button><button type="button" data-mood="dusk">Dusk</button><button type="button" data-mood="night">Night</button>
+    </div>
+    <div class="seg glass-in" id="unitSeg" role="group" aria-label="Units">
+      <button type="button" data-units="imperial">ft</button><button type="button" data-units="metric">m</button>
+    </div>
+    <button type="button" class="btn panel-toggle" id="panelToggle" aria-controls="panel" aria-expanded="true">Steps</button>
+  </div>
+  <input type="file" id="openInput" accept=".json,application/json" hidden>
+</header>
+
+<nav class="stepper glass" id="stepper" aria-label="Steps"></nav>
+<aside class="scorecard glass" id="scorecard" aria-label="Scorecard"></aside>
+
+<aside class="panel glass" id="panel" aria-label="Step controls">
+  <div class="panel-head" id="panelHead"></div>
+  <div class="panel-scroll" id="panelBody"></div>
+  <div class="panel-foot"><button type="button" class="btn" id="prevBtn">Back</button><span class="foot-tiers" id="footTiers"></span><button type="button" class="btn primary" id="nextBtn">Next</button></div>
+</aside>
+
+<div class="bottom glass" id="bottomBar">
+  <div class="caption"><span id="captionTitle">Three-quarter view</span><span class="hint" id="captionHint">Drag to orbit, right-drag to pan, scroll to zoom</span></div>
+  <div class="view-buttons" id="viewButtons" role="group" aria-label="Camera views"></div>
+  <div class="layer-buttons" id="layerButtons" role="group" aria-label="Layers"></div>
+  <div class="actions">
+    <select id="renderSize" aria-label="Image size"><option value="screen">Screen size</option><option value="1920x1080">1920 × 1080</option><option value="3840x2160" selected>3840 × 2160</option><option value="2048x2048">2048 square</option></select>
+    <button type="button" class="btn" id="renderBtn">Render image</button>
+    <button type="button" class="btn" id="sheetBtn">Render sheet</button>
+    <button type="button" class="btn" id="driveBtn">Drive</button>
+  </div>
+</div>
+
+<div class="hud glass" id="hud" hidden>
+  <div class="speed"><output id="speedOut">0.0</output><span>mph</span></div>
+  <div class="hud-text"><strong>Playa speed limit is 5 mph</strong><span>W and S to drive, A and D to steer. Drag to look around.</span></div>
+  <div class="pad" id="drivePad" aria-label="Driving controls">
+    <button type="button" data-key="w" aria-label="Forward">▲</button><button type="button" data-key="a" aria-label="Steer left">◀</button>
+    <button type="button" data-key="s" aria-label="Brake or reverse">▼</button><button type="button" data-key="d" aria-label="Steer right">▶</button>
+  </div>
+  <button type="button" class="btn primary" id="parkBtn">Park</button>
+</div>
+
+<div class="card-banner glass" id="cardBanner" hidden></div>
+<div class="compare-bar glass" id="compareBar" hidden></div>
+<div class="explain glass" id="explain" role="dialog" aria-modal="false" hidden></div>
+
+<dialog id="startDlg" aria-labelledby="startTitle">
+  <div class="dlg-head"><h2 id="startTitle">Start from…</h2><button type="button" class="chip" data-close>Close</button></div>
+  <div class="dlg-body" id="startBody"></div>
+</dialog>
+<dialog id="sheetDlg" aria-labelledby="sheetTitle">
+  <div class="dlg-head"><h2 id="sheetTitle">Render sheet</h2><button type="button" class="chip" data-close>Close</button></div>
+  <div class="dlg-body"><img id="sheetImg" alt="Five-view render sheet of the current design."></div>
+  <div class="dlg-foot"><p class="dlg-note" id="sheetNote"></p><button type="button" class="btn primary" id="sheetDownload">Download PNG</button></div>
+</dialog>
+<dialog id="tableDlg" aria-labelledby="tableTitle">
+  <div class="dlg-head"><h2 id="tableTitle">Compare vehicles</h2><button type="button" class="chip" data-close>Close</button></div>
+  <div class="dlg-body" id="tableBody"></div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>/*__THREE__*/</script>
+<script>/*__APP__*/</script>
+</body>
+</html>

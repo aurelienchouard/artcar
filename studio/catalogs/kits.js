@@ -72,6 +72,7 @@ const frontX = (c) => Math.max(c.xbF, c.vehFront);
 const hoodTop = (c) => (c.conv ? c.hoodTop : c.cabFloor + 0.45);
 const lerpN = (a, b, t) => a + (b - a) * t;
 const smooth = (t) => t * t * (3 - 2 * t);
+const clampR = (r) => Math.max(0.22, r);
 
 /* ------------------------------------------------------------------ front kits */
 defineKit({
@@ -413,9 +414,10 @@ theme({
   materials: ['aluminum', 'ACM', 'coroplast'], riderOpenings: 'Open cars behind the engine; roof deck open', look: { day: 'Brass and black', night: 'Firebox glow and a headlamp' },
   costTier: 2, effortTier: 3, explainer: 'The boiler sits low over the hood so the driver sees over it; the stack goes on the side away from the driver’s sight line.',
   parts(T, p) {
-    const c = T.car, x0 = c.xfs + 0.2, x1 = frontX(c) + 0.5, r = Math.max(0.3, Math.min(0.55, c.eye[1] - hoodTop(c) - 0.12) / 1.0), yc = hoodTop(c) + r * 0.8;
-    T.shell({ name: 'Boiler', material: p.material, x0, x1, step: 0.15, facets: 22, driverWindow: true, section: () => ({ zc: 0.25, yc, a: r, b: r }) });
-    T.solid(geo('Cylinder', r * 0.55, r * 0.3, p.stack, 18, 1, true), 'grille', x1 - 0.35, yc + r + p.stack / 2, 0.25, 6, 'Smokestack');
+    // the boiler sits low on the hood, on the passenger side, so its top stays under the driver's eye line
+    const c = T.car, x0 = c.xfs + 0.2, x1 = frontX(c) + 0.5, r = clampR(Math.min(0.5, (c.eye[1] - 0.25 - hoodTop(c)) / 1.6)), yc = hoodTop(c) + r * 0.6;
+    T.shell({ name: 'Boiler', material: p.material, x0, x1, step: 0.15, facets: 22, section: () => ({ zc: 0.3, yc, a: r, b: r }) });
+    T.solid(geo('Cylinder', r * 0.55, r * 0.3, p.stack, 18, 1, true), 'grille', x1 - 0.35, yc + r + p.stack / 2, 0.3, 6, 'Smokestack');
     T.panel([[x1, c.groundClear + 0.05, -c.W / 2 * 0.8], [x1 + 0.6, c.groundClear + 0.05, 0], [x1, c.groundClear + 0.05, c.W / 2 * 0.8], [x1, c.deckY - 0.1, 0]], 'steel', 'Cowcatcher');
     for (const sgn of [-1, 1]) for (let i = 0; i < 3; i++) {
       const x = c.xbR + 0.8 + i * 1.1;
@@ -490,7 +492,10 @@ theme({
   costTier: 2, effortTier: 2, explainer: 'The drum is a skin on hoops around the lounge, not a real mixer drum: it weighs a fraction and riders sit inside it.',
   parts(T, p) {
     const c = T.car, x0 = c.xbR + 0.1, x1 = c.xfs, yb = c.deckY - 0.1, yt = (c.hasRoof ? c.roofTop : c.deckY + 1.9) + 0.1;
-    const r = T.shell({ name: 'Drum', material: p.material, x0, x1, step: 0.2, facets: 28, driverWindow: true, openings: T.openings(), ribs: { every: 0.9, material: 'conduit' },
+    // a band of windows along each side keeps the drum shape while riders see out
+    const big = 50, wy0 = c.deckY + 0.75, wy1 = Math.min(yt - 0.5, c.deckY + 1.6), side = c.floorW / 2 - 0.3;
+    const win = [[c.lx0 + 0.3, c.lx1 - 0.3, wy0, wy1, -big, -side], [c.lx0 + 0.3, c.lx1 - 0.3, wy0, wy1, side, big], ...c.decks.map((dk) => [dk.dx0, dk.dx1, c.roofTop - 0.06, big, -big, big])];
+    const r = T.shell({ name: 'Drum', material: p.material, x0, x1, step: 0.2, facets: 28, driverWindow: true, openings: win.concat(T.openings({ lounge: false })), ribs: { every: 0.9, material: 'conduit' },
       section: (t) => { const k = 0.85 + 0.15 * Math.sin(Math.PI * t); const h = (yt - yb) / 2; return { zc: 0, yc: yb + h + p.tilt * (0.5 - t), a: (c.W / 2 + 0.08) * k, b: h * k, th0: -0.3, th1: Math.PI + 0.3 }; } });
     const spiral = []; for (let i = 0; i <= 80; i++) { const t = i / 80, th = -0.3 + (Math.PI + 0.6) * ((t * 5) % 1); const row = r.pts[Math.min(r.pts.length - 1, Math.round(t * (r.pts.length - 1)))]; const j = Math.round((th + 0.3) / (Math.PI + 0.6) * (row.length - 1)); spiral.push(row[j]); }
     T.led(spiral, 0.015);

@@ -830,7 +830,7 @@ export function buildCar(s, C) {
     neonH: s.roofDeck && s.neon ? clamp(s.neonSize, 0.2, s.railHeight - 0.03) : 0,
     tooNarrow: hasCab && floorW < cab.width + (C.family === 'reality-check' ? -0.15 : 0.08),
     daiquiri: s.rearStyle === 'daiquiri' && rearLen > 0,
-    kitResults, builtinBom, kitCar, prunedParts, hasTubes, tubeGroup: tubesG, hasRoof, barge, style, segs, decks, stair, stairsFailed, hatch, dTop, deckT: DECK_T, railRun, puckCount, projectorCount, extraMass, zones, powerY, bayIn,
+    kitResults, builtinBom, kitCar, prunedParts, hasTubes, tubeGroup: tubesG, hasRoof, barge, structStyle: style, segs, decks, stair, stairsFailed, hatch, dTop, deckT: DECK_T, railRun, puckCount, projectorCount, extraMass, zones, powerY, bayIn,
     lift, edge, hs, xfs, xrs, xPostF, rx0, rx1, cabFloor, cabFrontX, cabBackX, frontFloorY, eye: [driverX + 0.02, seatY + 0.72, driverZ],
   };
   return { root, wheels, geom };
