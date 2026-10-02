@@ -138,14 +138,13 @@ export function scorecard(E, d) {
 /* Everything else worth flagging, each tied to the step where it can be fixed. */
 export function collectFlags(E, d) {
   const u = d.view.units, L = (m) => fmtLen(m, u);
-  const { s, C, g, power, missing, tr, rc } = E;
+  const { s, C, g, power, tr, rc } = E;
   const f = [];
   const flag = (id, step, severity, title, detail) => f.push({ id, step, severity, title, detail });
   for (const vf of C.flags || []) flag(vf.id, 1, vf.severity, vf.title, vf.detail);
   if (d.brief.powertrain !== 'either' && C.powertrain !== d.brief.powertrain && !(d.brief.powertrain === 'gas' && C.powertrain === 'diesel'))
     flag('powertrain', 1, 'amber', 'Powertrain doesn’t match the brief', `The brief asks for ${d.brief.powertrain}; the ${C.short} is ${C.powertrain}.`);
-  if (d.brief.age === 'used' && C.buying && C.buying.newAvailable && /^none|^few|^rare/i.test(C.buying.used || '')) flag('used-market', 1, 'amber', 'Hard to find used', `${C.buying.used}.`);
-  if (d.brief.age === 'new' && C.buying && !C.buying.newAvailable) flag('new-market', 1, 'amber', 'Not sold new', 'The brief asks for a new chassis; this one isn’t sold new.');
+  if (C.buying && C.buying.newAvailable && /^none|^few|^rare/i.test(C.buying.used || '')) flag('used-market', 1, 'amber', 'Hard to find used', `${C.buying.used}.`);
   if (C.style === 'cart' && !s.rops) flag('rops', 2, g.barge ? 'red' : 'amber', 'No factory roll bar', g.barge ? 'The low barge has no posts, so nothing protects the driver in a rollover. Keep the factory roll bar or add posts.' : 'With the factory canopy gone, the posts right behind the driver must be built and braced as a roll bar.');
   if (s.strip === 'rails' && !(s.kits || []).some((k) => k.def.covers?.includes('front') || k.id === 'hood-cover'))
     flag('engine-cover', 6, 'amber', 'The engine needs a cover', 'Stripped to the frame rails, the engine and radiator are open. Add a front kit; keep the radiator’s airflow and the headlights clear.');
@@ -157,7 +156,6 @@ export function collectFlags(E, d) {
   if (g.deckFrontCapped) flag('deck-cap', 4, 'info', 'Deck stops short of the front', 'Without posts ahead of the driver, the deck can only reach about 1.6′ past the last post. The rest stays shade.');
   if (power.status !== 'ok') flag('power', 7, power.status, 'Power won’t last the night', `The bank runs about ${Number.isFinite(power.hours) ? power.hours.toFixed(1) : '∞'} h at this load; a night is ${power.need} h. About ${power.recommendKwh} kWh would do it${s.power === 'generator' ? '' : ', or add the generator'}.`);
   for (const p of power.bayProblems) flag('bay', 3, 'amber', 'Power bay too small', `${p[0].toUpperCase()}${p.slice(1)}.`);
-  for (const m of missing) flag('skill-' + m.skill, m.what.includes('structure') ? 3 : m.what.includes('lights') ? 7 : 6, 'amber', `Needs ${m.skill === 'cnc' ? 'CNC' : m.skill}`, `${m.what[0].toUpperCase()}${m.what.slice(1)} needs ${m.skill === 'cnc' ? 'CNC cutting' : m.skill}, which the brief doesn’t list.`);
   for (const k of s.kits || []) {
     if (MATERIALS[k.p.material]?.warning) flag('fabric-day', 6, 'amber', 'Fabric looks bad by day', `${k.def.name}: ${MATERIALS[k.p.material].warning}`);
     if (k.def.expects?.axles && C.axles < k.def.expects.axles) flag('axles', 6, 'amber', 'Wrong axle count', `${k.def.name}: ${k.def.expects.why}`);

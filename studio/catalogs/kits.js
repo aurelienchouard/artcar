@@ -5,7 +5,7 @@ const TAU = Math.PI * 2;
 export const TUBE_BUILDS = {
   sheet: { label: 'Thin sheet over hoops', spacing: 0.6, skin: 'alu', hoop: true, cost: 2, effort: 2, skills: ['welding'] },
   plyskin: { label: 'Plywood ribs and skin', spacing: 0.4, skin: 'ply', ribs: true, cost: 2, effort: 3, skills: ['cnc', 'woodworking'] },
-  lattice: { label: 'Plywood lattice, no skin (Pingüina)', spacing: 0.61, ribs: true, lengthwise: 'ply', cost: 2, effort: 3, skills: ['cnc', 'woodworking'] },
+  lattice: { label: 'Plywood lattice, no skin', spacing: 0.61, ribs: true, lengthwise: 'ply', cost: 2, effort: 3, skills: ['cnc', 'woodworking'] },
   perforated: { label: 'Perforated metal over hoops', spacing: 0.61, skin: 'perf', hoop: true, cost: 2, effort: 2, skills: ['welding'] },
   translucent: { label: 'Translucent panels, lit inside', spacing: 0.6, skin: 'poly', hoop: true, cost: 3, effort: 2, skills: ['welding'] },
   frame: { label: 'Open metal frame', spacing: 0.45, hoop: true, lengthwise: 'steel', cost: 1, effort: 2, skills: ['welding'] },

@@ -8,13 +8,11 @@ export const FIELDS = {
   'brief.budget': { type: 'enum', label: 'Budget', options: opt([1, '$'], [2, '$$'], [3, '$$$']), def: 2 },
   'brief.effort': { type: 'enum', label: 'Build effort the crew can handle', options: opt([1, 'Light'], [2, 'Moderate'], [3, 'Heavy']), def: 2 },
   'brief.powertrain': { type: 'enum', label: 'Powertrain', options: opt(['either', 'Either'], ['electric', 'Electric'], ['gas', 'Gas or diesel']), def: 'either' },
-  'brief.age': { type: 'enum', label: 'Chassis', options: opt(['used', 'Used, if serviceable'], ['new', 'New']), def: 'used' },
   'brief.transport': { type: 'enum', label: 'Getting it there', options: opt(['any', 'Any way'], ['drive', 'Drive it'], ['tow', 'Tow it ourselves'], ['hauler', 'Hire a hauler']), def: 'any' },
   'brief.vibes': { type: 'set', label: 'Vibe', options: opt(['lounge', 'Lounge'], ['dance', 'Dance floor'], ['bar', 'Bar'], ['sound', 'Sound camp'], ['chill', 'Quiet chill']), def: [] },
-  'brief.skills': { type: 'set', label: 'Crew skills', options: opt(['welding', 'Welding'], ['cnc', 'CNC'], ['woodworking', 'Woodworking'], ['electrical', 'Electrical']), def: ['welding', 'woodworking', 'electrical'] },
 
   /* step 1: vehicle */
-  'vehicle.id': { type: 'vehicle', label: 'Vehicle', def: 'express' },
+  'vehicle.id': { type: 'vehicle', label: 'Vehicle', def: null },   // null: a blank design, nothing picked yet
   'vehicle.wheelbase': { type: 'num', min: 1.2, max: 7, step: 0.01, fmt: 'len', label: 'Wheelbase', def: 4.04 },
   'vehicle.whatIf': { type: 'bool', label: 'What-if: change the chassis numbers', def: false },
   'vehicle.track': { type: 'num', min: 0.8, max: 2.4, step: 0.01, fmt: 'len', label: 'Track width', def: 1.75 },
@@ -27,7 +25,7 @@ export const FIELDS = {
   'strip.bed': { type: 'bool', label: 'Keep the stock cargo bed', def: true },
 
   /* step 3: structure */
-  'structure.style': { type: 'enum', label: 'Structure style', options: opt(['deck-posts', 'Deck and posts'], ['cage', 'Full cage'], ['barge', 'Low party barge'], ['bed-ext', 'Cart bed extension']), def: 'deck-posts' },
+  'structure.style': { type: 'enum', label: 'Structure style', options: opt(['barge', 'Low party barge'], ['deck-posts', 'Deck and posts'], ['cage', 'Full cage'], ['bed-ext', 'Cart bed extension']), def: 'deck-posts' },
   'structure.length': { type: 'num', min: 2.5, max: 12, step: 0.05, fmt: 'len', label: 'Body length', def: 5.9, lim: 'length' },
   'structure.width': { type: 'num', min: 1.4, max: 4.4, step: 0.01, fmt: 'len', label: 'Body width', def: 2.84, lim: 'width' },
   'structure.bodyFront': { type: 'num', min: -0.5, max: 2.6, step: 0.01, fmt: 'len', label: 'Body front, ahead of the front axle', def: 0.2, lim: 'bodyFront' },
@@ -71,13 +69,13 @@ export const FIELDS = {
   'layout.bikes': { type: 'int', min: 1, max: 10, step: 1, label: 'Bikes per rack', def: 4 },
 
   /* step 6: design */
-  'design.colors.frame': { type: 'color', label: 'Frame and roof', def: '#2b2d31' },
+  'design.colors.frame': { type: 'color', label: 'Frame and roof', def: '#1c1d20' },
   'design.colors.tube': { type: 'color', label: 'Panels and skins', def: '#3a3d42' },
   'design.colors.shade': { type: 'color', label: 'Shade cloth', def: '#34363a' },
   'design.colors.fabric': { type: 'color', label: 'Cushions and curtains', def: '#d9cfbf' },
   'design.colors.accent': { type: 'color', label: 'Throw pillows and awning', def: '#b8702c' },
   'design.colors.rug': { type: 'color', label: 'Rug', def: '#b19a77' },
-  'design.colors.cabMatch': { type: 'bool', label: 'Vehicle paint matches the panels', def: true },
+  'design.colors.cabMatch': { type: 'bool', label: 'Vehicle paint matches the panels', def: false },
   'design.colors.cab': { type: 'color', label: 'Vehicle paint', def: '#e9e7e2' },
 
   /* step 7: lights and sound */
@@ -100,7 +98,7 @@ export const FIELDS = {
   'transport.trailer': { type: 'trailer', label: 'Getting it there', def: 'stepdeck' },
 
   /* view preferences saved with the design */
-  'view.mood': { type: 'enum', label: 'Light', options: opt(['day', 'Day'], ['dusk', 'Dusk'], ['night', 'Night']), def: 'night' },
+  'view.mood': { type: 'enum', label: 'Light', options: opt(['day', 'Day'], ['dusk', 'Dusk'], ['night', 'Night']), def: 'day' },
   'view.units': { type: 'enum', label: 'Units', options: opt(['imperial', 'Feet and pounds'], ['metric', 'Meters and kilograms']), def: 'imperial' },
 };
 export const KIT_SLOTS = ['front', 'side', 'full', 'train', 'theme'];

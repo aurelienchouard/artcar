@@ -39,78 +39,100 @@ export function vehicleFit(id, brief) {
 function powertrainOk(C, pref) { return pref === 'either' || (pref === 'electric' ? C.powertrain === 'electric' : C.powertrain !== 'electric'); }
 
 /* ------------------------------------------------------------------ step 0: brief */
-function brief() {
-  const b = store.d.brief;
+function brief(app) {
+  const b = store.d.brief, E = store.E;
+  const skills = E.blank ? null : E.skills;
   return [
+    E.blank ? box('', h('strong', {}, 'Nothing is built yet.'), h('div', { class: 'note' }, 'Set what you want here, then pick a vehicle in step 1. The 3D view shows only what each step adds: the stock vehicle first, then the structure, the upper deck, the layout, the design and the lights.'),
+      app.saved ? h('div', { class: 'chips' }, h('button', { type: 'button', class: 'btn small', onclick: () => app.resume() }, `Resume “${app.saved.name}”`)) : null) : null,
     h('p', { class: 'note' }, 'The brief only sets targets. The scorecard compares the design against them.'),
     range('brief.ridersMin', { outFn: (x) => `${Math.round(x)}` }),
     range('brief.ridersMax', { outFn: (x) => `${Math.round(x)}` }),
     choice('brief.budget', { status: () => ({}) }),
     choice('brief.effort', { status: () => ({}) }),
     choice('brief.powertrain', { status: () => ({}), note: 'Vehicles that don’t match are hidden in the vehicle step.' }),
-    choice('brief.age', { status: () => ({}) }),
     choice('brief.transport', { status: () => ({}) }),
     chips('brief.vibes', { note: 'Picking a vibe pre-selects matching layout options in step 5.' }),
-    chips('brief.skills', { note: 'Kits that need a skill the crew doesn’t list get an amber note.' }),
     box('', h('strong', {}, `Targets: ${b.ridersMin === b.ridersMax ? b.ridersMax : `${b.ridersMin}–${b.ridersMax}`} riders, ${TIER_COST[b.budget]}, ${TIER_EFFORT[b.effort]} effort.`),
       h('div', { class: 'note' }, 'Cost and effort are relative tiers only, never dollars or hours.')),
+    box('', h('strong', {}, 'Crew skills this build needs'),
+      skills ? stats(skills.map((k) => [k.label, k.what.join('; ')])) : h('div', { class: 'note' }, 'An output, not an input: it lists what your choices call for once a vehicle is picked.')),
   ];
 }
 
 /* ------------------------------------------------------------------ step 1: vehicle */
 function vehicle(app) {
-  const d = store.d, E = store.E, C = E.C, pref = d.brief.powertrain;
-  const fam = app.ui.family || C.family;
+  const d = store.d, E = store.E, blank = !!E.blank, C = blank ? null : E.C, pref = d.brief.powertrain;
+  const fam = app.ui.family || (C ? C.family : 'cutaway');
   const inFam = VEHICLE_IDS.map((id) => VEHICLES[id]).filter((v) => v.family === fam);
-  const shown = inFam.filter((v) => powertrainOk(v, pref) || v.id === C.id);
+  const shown = inFam.filter((v) => powertrainOk(v, pref) || (C && v.id === C.id));
   const hidden = inFam.length - shown.length;
-  const famSeg = h('div', { class: 'seg wide', role: 'group', 'aria-label': 'Vehicle family' }, FAMILIES.map((f) => h('button', { type: 'button', 'aria-pressed': String(f.id === fam), onclick: () => { app.ui.family = f.id; app.rerender(); } }, f.label)));
-  const famNote = FAMILIES.find((f) => f.id === fam).note;
-  const cards = h('div', { class: 'cards' }, shown.map((v) => {
-    const fit = app.fitReady(v.id) ? vehicleFit(v.id, d.brief) : null;
+  const pick = (v) => { if (C && v.id === C.id) return; setValue('vehicle.id', v.id); app.afterVehicleSwitch(blank); };
+  const fitTags = (v, fit) => {
     const tags = [{ text: v.powertrain }, { text: `${W(v.payloadLb / 2.20462)} payload`, cls: v.confidence.payloadLb || 'estimate' }];
-    if (fit) tags.push({ text: `about ${fit.riders} riders after a typical build`, cls: fit.riders >= d.brief.ridersMin ? 'ok' : 'amber' }, { text: `upper deck: ${fit.deck}`, cls: fit.deck === 'yes' ? 'ok' : fit.deck === 'no' ? 'red' : 'amber' });
+    if (fit) tags.push({ text: `about ${fit.riders} riders`, cls: fit.riders >= d.brief.ridersMin ? 'ok' : 'amber' }, { text: `upper deck: ${fit.deck}`, cls: fit.deck === 'yes' ? 'ok' : fit.deck === 'no' ? 'red' : 'amber' });
     if (!powertrainOk(v, pref)) tags.push({ text: 'doesn’t match the brief', cls: 'amber' });
-    return h('button', { type: 'button', class: 'ocard', 'aria-pressed': String(v.id === C.id), onclick: () => { if (v.id !== C.id) { setValue('vehicle.id', v.id); app.afterVehicleSwitch(); } } },
-      h('div', { class: 't' }, h('span', {}, v.short), h('span', { class: 'tag' }, `${v.wheelbaseOptions.map((w) => Math.round(w / 0.0254) + '″').join(' / ')} WB`)),
-      h('div', { class: 'd' }, v.summary), h('div', { class: 'meta' }, tags.map((t) => h('span', { class: 'tag ' + (t.cls || '') }, t.text))));
+    return tags;
+  };
+  const tagRow = (tags) => h('div', { class: 'meta' }, tags.map((t) => h('span', { class: 'tag ' + (t.cls || '') }, t.text)));
+
+  /* the chosen vehicle: everything about it in one place */
+  let yours;
+  if (blank) yours = [box('', h('strong', {}, 'Pick a vehicle to build on.'), h('div', { class: 'note' }, 'The 3D view shows it stock, exactly as you’d buy it. Nothing is added until the later steps.'))];
+  else {
+    const fit = vehicleFit(C.id, d.brief), ch = store.lastChanges;
+    const spec = SPEC_FIELDS.map(([k, lab]) => {
+      const conf = C.confidence[k] || 'estimate', src = C.sources[k] || 'Studio estimate, needs a source';
+      const val = { payloadLb: W(C.payloadLb / 2.20462), gvwrLb: W(C.gvwrLb / 2.20462), curbLb: W(C.curbLb / 2.20462), wheelbase: L(E.s.wheelbase), track: C.track.front === C.track.rear ? L(C.track.front) : `${L(C.track.front)} front, ${L(C.track.rear)} rear`,
+        tire: `${C.tire.size}, ${L(C.tire.diameter)}${C.tire.dualRear ? ', dual rear' : ''}`, frameHeight: L(C.frameHeight), ca: C.style === 'cart' ? 'n/a' : L(E.s.wheelbase + C.cab.back), ba: L(C.ba),
+        length: L(C.ba + E.s.wheelbase + C.af), width: L(C.width), topSpeedMph: C.topSpeedMph ? `${C.topSpeedMph} mph` : '—', powertrain: C.powertrain }[k];
+      return [lab, h('span', {}, val, ' ', h('span', { class: 'tag ' + conf, title: src }, conf))];
+    });
+    yours = [
+      h('div', { class: 'yours' },
+        h('div', { class: 'k note' }, 'Your vehicle'),
+        h('h3', {}, C.label), h('p', { class: 'note' }, C.summary), tagRow(fitTags(C, fit)),
+        C.wheelbaseOptions.length > 1 && !d.vehicle.whatIf ? choice('vehicle.wheelbase', { label: `Wheelbase: the ${C.short} comes in ${C.wheelbaseOptions.length} lengths`, options: C.wheelbaseOptions.map((w) => [w, `${Math.round(w / 0.0254)}″ (${L(w)})`]), status: () => ({}), seg: true, note: 'Pick the one you have or can find. A longer wheelbase gives a longer deck between the axles.' }) : null,
+        ch.length ? box('warn', h('strong', {}, 'Switching kept your choices and changed:'), h('ul', {}, ch.map((c) => h('li', {}, `${FIELDS[c.path].label}: ${L(c.from)} → ${L(c.to)}${c.atMax ? ' (chassis max)' : ''}`)))) : null,
+        stats([
+          ['Riders', `payload allows about ${fit.riders} after a typical build`],
+          ['Upper deck', `typical build: ${fit.deck}`],
+          ['Deck height', `${L(E.g.deckY)} (frame plus build-up)`],
+        ])),
+      h('details', { class: 'more' }, h('summary', {}, `Spec card and buying notes: ${C.short}`),
+        h('p', { class: 'note' }, 'Every value carries a source (hover a badge) and a confidence: spec sheet, measured, or estimate.'),
+        stats(spec),
+        stats([['New', C.buying.newAvailable ? 'available' : 'not sold new'], ['Used', C.buying.used], ['Service', C.buying.service], C.buying.knownIssues.length ? ['Known issues', C.buying.knownIssues.join('; ')] : null]),
+        h('div', { class: 'chips' },
+          h('button', { type: 'button', class: 'chip', 'aria-pressed': String(app.overlays.dims), onclick: () => app.toggleOverlay('dims') }, 'Dimensions overlay'),
+          h('button', { type: 'button', class: 'chip', onclick: () => app.pickSilhouette() }, app.overlays.silhouette ? 'Replace reference image' : 'Reference silhouette…')),
+        app.overlays.silhouette ? h('div', {}, range('vehicle.wheelbase', { label: 'Reference image length', lim: [2, 14], value: app.overlays.silLen, outFn: (x) => L(x), set: (x) => app.setSilhouette({ len: x }) }),
+          range('vehicle.wheelbase', { label: 'Slide the image', lim: [-4, 4], value: app.overlays.silX, outFn: (x) => L(x), set: (x) => app.setSilhouette({ x }) }),
+          h('button', { type: 'button', class: 'btn small', onclick: () => app.setSilhouette(null) }, 'Remove reference image')) : null),
+      h('details', { class: 'more', open: d.vehicle.whatIf || null }, h('summary', {}, 'What-if: change the chassis numbers'),
+        toggle('vehicle.whatIf', { note: 'Explore a configuration the catalog doesn’t list. The spec card keeps the catalog values.' }),
+        d.vehicle.whatIf ? [range('vehicle.wheelbase'), range('vehicle.track'), range('vehicle.wheelDia'), range('vehicle.frameHeight')] : null),
+      ...stepFlags(1),
+    ];
+  }
+
+  /* the catalog to browse */
+  const famSeg = h('div', { class: 'seg wide fams', role: 'group', 'aria-label': 'Vehicle family' }, FAMILIES.map((f) => h('button', { type: 'button', 'aria-pressed': String(f.id === fam), onclick: () => { app.ui.family = f.id; app.rerender(); } }, f.label)));
+  const cards = h('div', { class: 'cards' }, shown.map((v) => {
+    const fit = app.fitReady(v.id) ? vehicleFit(v.id, d.brief) : null, sel = C && v.id === C.id;
+    return h('button', { type: 'button', class: 'ocard', 'aria-pressed': String(!!sel), onclick: () => pick(v) },
+      h('div', { class: 't' }, h('span', {}, v.short), h('span', { class: 'tag' }, sel ? 'your vehicle' : `${v.wheelbaseOptions.map((w) => Math.round(w / 0.0254) + '″').join(' / ')} WB`)),
+      h('div', { class: 'd' }, v.summary), tagRow(fitTags(v, fit)));
   }));
-  const ch = store.lastChanges;
-  const spec = SPEC_FIELDS.map(([k, lab]) => {
-    const conf = C.confidence[k] || 'estimate', src = C.sources[k] || 'Studio estimate, needs a source';
-    const val = { payloadLb: W(C.payloadLb / 2.20462), gvwrLb: W(C.gvwrLb / 2.20462), curbLb: W(C.curbLb / 2.20462), wheelbase: L(E.s.wheelbase), track: C.track.front === C.track.rear ? L(C.track.front) : `${L(C.track.front)} front, ${L(C.track.rear)} rear`,
-      tire: `${C.tire.size}, ${L(C.tire.diameter)}${C.tire.dualRear ? ', dual rear' : ''}`, frameHeight: L(C.frameHeight), ca: C.style === 'cart' ? 'n/a' : L(E.s.wheelbase + C.cab.back), ba: L(C.ba),
-      length: L(C.ba + E.s.wheelbase + C.af), width: L(C.width), topSpeedMph: C.topSpeedMph ? `${C.topSpeedMph} mph` : '—', powertrain: C.powertrain }[k];
-    return [lab, h('span', {}, val, ' ', h('span', { class: 'tag ' + conf, title: src }, conf))];
-  });
-  const fit = vehicleFit(C.id, d.brief);
   return [
-    famSeg, h('p', { class: 'note' }, famNote),
+    ...yours,
+    h('h3', {}, blank ? 'Vehicles' : 'Switch to another vehicle'),
+    h('p', { class: 'note' }, blank ? 'Browse by family. Tap a card to pick it.' : 'Switching keeps your later choices; the body is clamped to the new chassis.'),
+    famSeg, h('p', { class: 'note' }, FAMILIES.find((f) => f.id === fam).note),
+    h('p', { class: 'legend note' }, 'On each card: payload (badge color shows spec sheet, measured or estimate), about how many riders fit after a typical build, and whether it can carry an upper deck.'),
     hidden ? box('warn', `${hidden} ${hidden === 1 ? 'vehicle is' : 'vehicles are'} hidden by the brief’s powertrain preference (${pref}). Change it in the brief to see them.`) : null,
     cards,
-    h('h3', {}, C.label),
-    ch.length ? box('warn', h('strong', {}, 'Switching kept your choices and changed:'), h('ul', {}, ch.map((c) => h('li', {}, `${FIELDS[c.path].label}: ${L(c.from)} → ${L(c.to)}${c.atMax ? ' (chassis max)' : ''}`)))) : null,
-    C.wheelbaseOptions.length > 1 && !d.vehicle.whatIf ? choice('vehicle.wheelbase', { label: 'Wheelbase', options: C.wheelbaseOptions.map((w) => [w, `${Math.round(w / 0.0254)}″ (${L(w)})`]), status: () => ({}), select: true }) : null,
-    box('', h('strong', {}, 'Fit to the brief'), stats([
-      ['Riders', `payload allows about ${fit.riders} riders after a typical build`],
-      ['Upper deck', `typical: ${fit.deck}`],
-      ['Deck height', `${L(E.g.deckY)} (frame plus build-up)`],
-    ])),
-    h('h3', {}, 'Spec card'), h('p', { class: 'note' }, 'Every value carries a source (hover a badge) and a confidence: spec sheet, measured, or estimate.'),
-    stats(spec),
-    h('h3', {}, 'Buying notes'),
-    stats([['New', C.buying.newAvailable ? 'available' : 'not sold new'], ['Used', C.buying.used], ['Service', C.buying.service], C.buying.knownIssues.length ? ['Known issues', C.buying.knownIssues.join('; ')] : null]),
-    h('div', { class: 'chips' },
-      h('button', { type: 'button', class: 'chip', 'aria-pressed': String(app.overlays.dims), onclick: () => app.toggleOverlay('dims') }, 'Dimensions overlay'),
-      h('button', { type: 'button', class: 'chip', onclick: () => app.openVehicleTable(fam) }, 'Compare vehicles'),
-      h('button', { type: 'button', class: 'chip', onclick: () => app.pickSilhouette() }, app.overlays.silhouette ? 'Replace reference image' : 'Reference silhouette…')),
-    app.overlays.silhouette ? h('div', {}, range('vehicle.wheelbase', { label: 'Reference image length', lim: [2, 14], value: app.overlays.silLen, outFn: (x) => L(x), set: (x) => app.setSilhouette({ len: x }) }),
-      range('vehicle.wheelbase', { label: 'Slide the image', lim: [-4, 4], value: app.overlays.silX, outFn: (x) => L(x), set: (x) => app.setSilhouette({ x }) }),
-      h('button', { type: 'button', class: 'btn small', onclick: () => app.setSilhouette(null) }, 'Remove reference image')) : null,
-    h('details', { class: 'more', open: d.vehicle.whatIf || null }, h('summary', {}, 'What-if: change the chassis numbers'),
-      toggle('vehicle.whatIf', { note: 'Explore a configuration the catalog doesn’t list. The spec card keeps the catalog values.' }),
-      d.vehicle.whatIf ? [range('vehicle.wheelbase'), range('vehicle.track'), range('vehicle.wheelDia'), range('vehicle.frameHeight')] : null),
-    ...stepFlags(1),
+    h('div', { class: 'chips' }, h('button', { type: 'button', class: 'chip', onclick: () => app.openVehicleTable(fam) }, 'Compare vehicles in a table')),
   ];
 }
 
@@ -127,7 +149,7 @@ function strip() {
   ];
   const DESC = {
     stock: ['Stock', 'Cab, doors, windshield, mirrors and bumper stay. Road legal if lights and mirrors stay; you can drive it there. The cab limits the deck and the driver area.'],
-    cut: ['Cut at the windshield base (Pingüina)', 'Cab shell off; hood, fenders, factory dash, steering column, floor pan and driver’s seat stay. The bumper goes. Not road legal: it must be hauled. The passenger seat goes if the front ladder needs its spot.'],
+    cut: ['Cut at the windshield base', 'Cab shell off; hood, fenders, factory dash, steering column, floor pan and driver’s seat stay. The bumper goes. Not road legal: it must be hauled. The passenger seat goes if the front ladder needs its spot.'],
     rails: ['Strip to frame rails', 'Everything above the frame goes except the driver’s controls and seat on a new platform. Most freedom, most work. The engine needs its own cover.'],
   };
   return [
@@ -147,9 +169,9 @@ function strip() {
 function structure() {
   const d = store.d, E = store.E, g = E.g, lim = E.limits;
   const STY = {
-    'deck-posts': ['Deck and posts', 'A flat deck on the frame with perimeter posts carrying a roof or upper deck. Slug-style scaffold.'],
-    cage: ['Full cage (Pingüina)', 'A cage that wraps the whole vehicle including the front: attachment points everywhere for design structure.'],
-    barge: ['Low party barge', 'A deck only, with rails: no posts, no roof.'],
+    barge: ['Low party barge', 'A deck only, with rails: no posts, no roof. The simplest build.'],
+    'deck-posts': ['Deck and posts', 'A flat deck on the frame with perimeter posts carrying a roof or an upper deck. Slug-style scaffold.'],
+    cage: ['Full cage', 'A cage that wraps the whole vehicle including the front: attachment points everywhere for design structure.'],
     'bed-ext': ['Cart bed extension', 'A lighter frame extending a cart’s stock bed. Carts only.'],
   };
   const b = g.bom, ft = (m) => `${Math.round(m * 3.281).toLocaleString('en-US')} ft`, sheets = (m2, w) => Math.ceil(m2 * (1 + w) / 2.973);

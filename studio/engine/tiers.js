@@ -50,12 +50,15 @@ export function tierTotals(d, s, C, g) {
   return { cost: bandOf(cost, 'cost'), effort: bandOf(effort, 'effort'), points: [cost, effort], perStep, lines };
 }
 
-/* Skills the design needs that the crew doesn't list. */
-export function missingSkills(d, s) {
-  const need = [];
-  const want = (skill, what) => { if (!d.brief.skills.includes(skill)) need.push({ skill, what }); };
+/* The crew skills this build needs, from the choices made: an output, never a brief input. */
+export const SKILL_LABEL = { welding: 'Welding', cnc: 'CNC cutting', woodworking: 'Woodworking', electrical: 'Electrical', mechanical: 'Mechanical' };
+export function requiredSkills(d, s) {
+  const need = new Map();
+  const want = (skill, what) => { if (!need.has(skill)) need.set(skill, []); if (!need.get(skill).includes(what)) need.get(skill).push(what); };
+  if (d.strip.level !== 'stock' && s.strip !== 'cart') want('mechanical', d.strip.level === 'rails' ? 'stripping to the frame and moving the driver’s controls' : 'cutting the cab at the windshield base');
   want('welding', 'the steel structure');
   if (d.structure.material === 'alu') want('welding', 'aluminum secondary members (TIG)');
+  if (d.upper.kind !== 'none' || d.layout.seating !== 'platform') want('woodworking', d.upper.kind !== 'none' ? 'decking, seating and the rear section' : 'seating and the rear section');
   want('electrical', 'lights, sound and power');
   for (const k of s.kits || []) {
     const skills = new Set(k.def.skills || []);
@@ -63,6 +66,6 @@ export function missingSkills(d, s) {
     const m = MATERIALS[k.p.material]; if (m) m.skills.forEach((x) => skills.add(x));
     for (const sk of skills) want(sk, k.def.name.toLowerCase());
   }
-  const seen = new Set();
-  return need.filter((n) => { const key = n.skill + n.what; if (seen.has(key)) return false; seen.add(key); return true; });
+  const order = ['mechanical', 'welding', 'woodworking', 'cnc', 'electrical'];
+  return [...need.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])).map(([skill, what]) => ({ skill, label: SKILL_LABEL[skill] || skill, what }));
 }

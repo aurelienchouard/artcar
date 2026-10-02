@@ -22,6 +22,9 @@ export function defaultDesign() {
   return d;
 }
 
+/* A blank design: the brief's defaults and no vehicle. Nothing is built until a vehicle is picked. */
+export function blankDesign() { return defaultDesign(); }
+
 /* v1 flat keys and where they live now. */
 const V1_MAP = {
   wheelbase: 'vehicle.wheelbase', track: 'vehicle.track', wheelDia: 'vehicle.wheelDia', frameHeight: 'vehicle.frameHeight',
@@ -72,7 +75,8 @@ export function starterDesign(vehicleId, extra = {}) {
   applyFlat(d, typicalFlat(C));
   if (C.style === 'cart' || C.family === 'utility') d.kits.front = { id: 'none', p: {} };
   d.name = `${C.short}, ${d.upper.kind === 'none' ? 'shade only' : 'roof deck'}`;
-  return sanitize(Object.assign(d, extra));
+  for (const [k, v] of Object.entries(extra)) if (v !== undefined) d[k] = v;
+  return sanitize(d);
 }
 /* The vehicle's typical build in v1 keys: its catalog defaults, or one derived from its size. */
 export function typicalFlat(C) {
@@ -110,7 +114,7 @@ function validField(f, v) {
     case 'color': return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
     case 'enum': return f.options.some((o) => o[0] === v);
     case 'set': return Array.isArray(v) && v.every((x) => f.options.some((o) => o[0] === x));
-    case 'vehicle': return typeof v === 'string' && !!VEHICLES[v];
+    case 'vehicle': return v === null || (typeof v === 'string' && !!VEHICLES[v]);
     case 'trailer': return typeof v === 'string' && !!TRAILERS[v];
     case 'segments': return Array.isArray(v) && v.length >= 1 && v.length <= 8 && v.every((sg) => sg && ['deck', 'shade', 'open'].includes(sg.kind) && Number.isFinite(sg.len) && sg.len > 0);
     default: return false;
@@ -145,6 +149,7 @@ export function sanitize(input, opts = {}) {
     if (k && (k.id === 'none' || (KITS[k.id] && KITS[k.id].category === slot))) d.kits[slot] = { id: k.id, p: k.id === 'none' ? {} : sanitizeKitParams(k.id, k.p) };
     else if (src.kits) d.kits[slot] = { id: 'none', p: {} };
   }
+  if (!d.vehicle.id) { if (d.brief.ridersMin > d.brief.ridersMax) d.brief.ridersMin = d.brief.ridersMax; return d; }   // blank: nothing to clamp to yet
   const C = vehicleOf(d.vehicle.id);
   if (!d.vehicle.whatIf) {
     d.vehicle.wheelbase = nearest(C.wheelbaseOptions, d.vehicle.wheelbase);
@@ -158,6 +163,7 @@ const nearest = (opts, v) => opts.reduce((a, b) => (Math.abs(b - v) < Math.abs(a
 /* Clamp body length, width and front to the chassis; returns what changed. */
 export function clampBody(d) {
   const changes = [];
+  if (!d.vehicle.id) return changes;
   const C = vehicleOf(d.vehicle.id);
   for (const k of ['bodyFront', 'length', 'width']) {
     const lim = bodyLimits(params(d), C)[k];
@@ -215,9 +221,12 @@ export { TUBE_BUILDS };
 /* Switch the base vehicle without resetting later choices (principle 5): the body is clamped to the new chassis
    and every change is listed. */
 export function switchVehicle(d0, id) {
-  const d = clone(d0), C = vehicleOf(id);
+  // from a blank design: the vehicle's own typical build, keeping the brief and the view
+  if (!d0.vehicle.id) return { design: starterDesign(id, { brief: clone(d0.brief), view: clone(d0.view), name: d0.name === defaultDesign().name ? undefined : d0.name }), changes: [] };
+  const d = clone(d0), C = vehicleOf(id), C0 = vehicleOf(d0.vehicle.id);
   d.vehicle.id = C.id;
   d.vehicle.whatIf = false;
+  if (d.name.startsWith(`${C0.short}, `)) d.name = C.short + d.name.slice(C0.short.length);   // an automatic name follows the vehicle
   d.vehicle.wheelbase = C.wheelbaseOptions.find((w) => Math.abs(w - d0.vehicle.wheelbase) < 0.005) ?? C.wheelbase;
   d.vehicle.track = Math.min(C.track.front, C.track.rear); d.vehicle.wheelDia = C.tire.diameter; d.vehicle.frameHeight = C.frameHeight;
   const changes = clampBody(d);

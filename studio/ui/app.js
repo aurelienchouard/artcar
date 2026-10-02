@@ -3,12 +3,14 @@ import { renderer, scene, camera, controls, composer, bloom, carRoot, lamps, LAM
 import { makeMaterials, makeV2Materials, updateMaterialColors, updateV2Colors, LED_U, LED_MODES, MAT } from '../builders/materials.js';
 import { buildThree, disposeTree } from '../builders/build.js';
 import { dimsOverlay, viewConeViz, trailerModel, silhouettePlane } from '../builders/overlays.js';
-import { store, setDesign, setValue, scheduleEval, undo, loadInitial, openFile } from './store.js';
+import { store, setDesign, setValue, scheduleEval, undo, loadInitial, savedDesign, openFile } from './store.js';
 import { renderStep, vehicleFit } from './steps.js';
 import { renderScorecard, hideExplain } from './scorecard.js';
 import { h } from './widgets.js';
 import { evaluate, STEPS } from '../engine/evaluate.js';
-import { sanitize, starterDesign } from '../engine/state.js';
+import { sanitize, starterDesign, blankDesign, params } from '../engine/state.js';
+import { buildCar } from '../engine/model/car.js';
+import { boundsOf } from '../engine/scene.js';
 import { encodeDesign, decodeDesign } from '../engine/share.js';
 import { fmtLen, fmtWeight, TIER_COST, TIER_EFFORT } from '../engine/units.js';
 import { stepTier } from '../engine/tiers.js';
@@ -32,7 +34,31 @@ const app = {
   view: 'hero', userMoved: false,
   compare: [], compareOn: false, card: null,
   fitDone: new Set(),
+  saved: null,
 };
+/* Each step shows the build up to that step: the vehicle alone while picking it and stripping it, then the structure,
+   the upper deck, the layout and riders, the design, the lights. The brief and transport steps show everything. */
+const LAYER_KEYS = ['vehicle', 'structure', 'upper', 'layout', 'riders', 'design', 'lights'];
+const STAGES = [null, ['vehicle'], ['vehicle'], ['vehicle', 'structure'], ['vehicle', 'structure', 'upper'],
+  ['vehicle', 'structure', 'upper', 'layout', 'riders'], ['vehicle', 'structure', 'upper', 'layout', 'riders', 'design'], null, null];
+function stageLayers() {
+  const st = STAGES[store.step];
+  for (const k of LAYER_KEYS) app.layers[k] = st ? st.includes(k) : true;
+  app.layers.xray = false;
+  document.querySelectorAll('#layerButtons .v').forEach((b) => b.setAttribute('aria-pressed', String(!!app.layers[b.dataset.layer])));
+}
+const isPreview = () => store.step === 1 && store.E && !store.E.blank;
+let previewCache = { key: null, model: null };
+/* The stock vehicle on its own, with nothing changed: what the vehicle step shows. */
+function stockModel(E) {
+  const key = JSON.stringify(E.d.vehicle);
+  if (previewCache.key === key) return previewCache.model;
+  const d = JSON.parse(JSON.stringify(E.d));
+  d.strip.level = 'stock'; d.strip.rops = !!E.C.rops; d.strip.bed = true;
+  const s = params(d); s.preview = true;
+  previewCache = { key, model: buildCar(s, E.C) };
+  return previewCache.model;
+}
 const car = { root: null, wheels: [], bbox: new T.Box3(), extras: new T.Group(), others: [] };
 scene.add(car.extras);
 carRoot.add(new T.Group());   // placeholder so carRoot always has children
@@ -48,12 +74,24 @@ window.__toast = toast;
 /* ------------------------------------------------------------------ the car in 3D */
 function rebuildCar() {
   const E = store.E;
-  if (car.root) { carRoot.remove(car.root); disposeTree(car.root); }
-  const b = buildThree(E.model);
+  if (car.root) { carRoot.remove(car.root); disposeTree(car.root); car.root = null; car.wheels = []; }
+  if (E.blank) {   // nothing picked yet: an empty patch of playa, framed as if a van stood there
+    car.bbox.min.set(-3.2, 0, -1.3); car.bbox.max.set(3.2, 2.6, 1.3);
+    rebuildOverlays();
+    return;
+  }
+  const preview = isPreview();
+  const model = preview ? stockModel(E) : E.model;
+  const b = buildThree(model);
   car.root = b.root; car.wheels = b.wheels; car.layers = b.layers;
   carRoot.add(car.root);
-  const pb = E.dims.withBikes;
-  car.bbox.min.set(...pb.min); car.bbox.max.set(...pb.max);
+  if (preview) {
+    const pb = boundsOf(model.root, (o) => (o.userData.layer && o.userData.layer !== 'vehicle') || o.userData.noBox);
+    car.bbox.min.set(pb.min[0], 0, pb.min[2]); car.bbox.max.set(pb.max[0], pb.max[1], pb.max[2]);
+  } else {
+    const pb = E.dims.withBikes;
+    car.bbox.min.set(...pb.min); car.bbox.max.set(...pb.max);
+  }
   updateMaterialColors(E.s); updateV2Colors(E.s);
   const g = E.g, lc = (g.lx0 + g.lx1) / 2;
   lamps[0].position.set(lc + g.loungeLen / 4, g.roofBottom - 0.3, 0);
@@ -66,6 +104,8 @@ function rebuildCar() {
 function rebuildOverlays() {
   for (const c of [...car.extras.children]) { car.extras.remove(c); disposeTree(c); }
   const E = store.E;
+  carRoot.position.y = 0;
+  if (E.blank) return;
   if (app.overlays.dims) car.extras.add(dimsOverlay(E, store.d.view.units));
   if (app.view === 'cockpit' && E.view) car.extras.add(viewConeViz(E.view));
   if (app.overlays.silhouette) car.extras.add(silhouettePlane(app.overlays.silhouette, app.overlays.silLen, E.g.mid + app.overlays.silX, 0, 0.5)).position.z = -(E.g.W / 2 + 1.2);
@@ -106,6 +146,7 @@ function applyVisibility() {
 function ledAverage(mode, t) { return { breathe: 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 1.7)), chase: 0.45, sparkle: 0.4, off: 0 }[mode] ?? 1; }
 const tmpColor = new T.Color();
 function updateFrameUniforms() {
+  if (store.E.blank) { lamps.forEach((l) => { l.intensity = 0; }); return; }
   const s = store.E.s;
   carRoot.updateMatrixWorld(true);
   LED_U.uCarInv.value.copy(carRoot.matrixWorld).invert();
@@ -130,6 +171,7 @@ function updateFrameUniforms() {
   MAT.beam.color.copy(MAT.rgb.emissive); MAT.beam.opacity = 0.055 * night;
 }
 function setLedCss() {
+  if (store.E.blank) return;
   const s = store.E.s, root = document.documentElement.style;
   root.setProperty('--led', s.ledColor);
   const c = new T.Color(s.ledColor), lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
@@ -176,11 +218,13 @@ function screenFrame(fov) {
 }
 function frameFor(fov, aspect) { const tv = Math.tan(T.MathUtils.degToRad(fov) / 2); return { tv, th: tv * aspect }; }
 const fitDist = (hExt, vExt, fr, margin) => Math.max((vExt / 2) * margin / fr.tv, (hExt / 2) * margin / fr.th);
+const BLANK_VIEWS = new Set(['hero', 'left', 'right', 'front', 'rear', 'top']);
 function viewPose(id, fr) {
-  const E = store.E, g = E.g;
+  const E = store.E, g = E.g || { deckY: 0 };
+  if (E.blank && !BLANK_VIEWS.has(id)) id = 'hero';
   const b = car.bbox.clone();
   if (app.compareOn && car.others.length) for (const o of car.others) b.union(o.box);
-  if (id === 'packed') { const pk = E.dims.packed; b.min.set(pk.min[0] - 1, 0, pk.min[2]); b.max.set(pk.max[0] + 5, pk.max[1] + (TRAILERS[E.s.trailer]?.deck || 0), pk.max[2]); }
+  if (id === 'packed' && !E.blank) { const pk = E.dims.packed; b.min.set(pk.min[0] - 1, 0, pk.min[2]); b.max.set(pk.max[0] + 5, pk.max[1] + (TRAILERS[E.s.trailer]?.deck || 0), pk.max[2]); }
   const c = b.getCenter(new T.Vector3()), sz = b.getSize(new T.Vector3());
   switch (id) {
     case 'top': { const d = fitDist(sz.x, sz.z, fr, 1.06); return { p: new T.Vector3(c.x, g.deckY + d, c.z - 0.001), t: new T.Vector3(c.x, g.deckY, c.z) }; }
@@ -220,7 +264,8 @@ function stepTween(now) {
   if (k >= 1) tween = null;
 }
 function setView(id, instant) {
-  if (id === 'roof' && !store.E.g.decks.length) id = 'hero';
+  if (store.E.blank ? !BLANK_VIEWS.has(id) : id === 'roof' && !store.E.g.decks.length) id = 'hero';
+  if (isPreview() && ['packed', 'roof', 'lounge', 'top'].includes(id)) id = 'hero';
   const was = app.view;
   app.view = id; app.userMoved = false;
   if ((was === 'packed') !== (id === 'packed') || (was === 'cockpit') !== (id === 'cockpit')) rebuildOverlays();
@@ -249,7 +294,7 @@ function buildViewButtons() {
 function updateViewButtons() {
   document.querySelectorAll('#viewButtons .v').forEach((b) => {
     b.setAttribute('aria-pressed', String(b.dataset.view === app.view));
-    if (b.dataset.view === 'roof') b.disabled = !store.E.g.decks.length;
+    b.disabled = store.E.blank ? !BLANK_VIEWS.has(b.dataset.view) : b.dataset.view === 'roof' && !store.E.g.decks.length;
   });
 }
 controls.addEventListener('start', () => { tween = null; app.userMoved = true; drive.dragging = true; });
@@ -259,15 +304,21 @@ controls.addEventListener('end', () => { drive.dragging = false; });
 function renderStepper() {
   const nav = $('#stepper'); nav.innerHTML = '';
   store.E.steps.forEach((st, i) => {
-    const b = h('button', { type: 'button', class: 'step', 'aria-current': i === store.step ? 'step' : null, title: `${st.q}${st.items.length ? ' · ' + st.items.map((x) => x.label || x.title).join(', ') : ''}` },
+    const locked = store.E.blank && i >= 2;
+    const b = h('button', { type: 'button', class: 'step', disabled: locked, 'aria-current': i === store.step ? 'step' : null, title: locked ? 'Pick a vehicle first (step 1)' : `${st.q}${st.items.length ? ' · ' + st.items.map((x) => x.label || x.title).join(', ') : ''}` },
       h('span', { class: 'n' }, String(i)), h('span', {}, st.title), h('span', { class: 'dot ' + st.status, 'aria-label': st.status === 'ok' ? 'no conflicts' : `${st.status} flags` }));
     b.addEventListener('click', () => goStep(i));
     nav.append(b);
   });
 }
 function goStep(i) {
+  if (store.E.blank && i >= 2) { toast('Pick a vehicle first: everything else builds on it.'); i = 1; }
+  const wasPreview = isPreview();
   store.step = clamp(i, 0, STEPS.length - 1);
   hideExplain();
+  stageLayers();
+  if (wasPreview !== isPreview()) { rebuildCar(); if (!app.userMoved && !drive.on) setView(app.view); }
+  else applyVisibility();
   renderStepper(); renderPanel(true);
   if (document.body.classList.contains('panel-hidden')) togglePanel(true);
   if (store.step === 1 && !app.overlays.dims && app.view === 'hero') { /* keep the view */ }
@@ -280,22 +331,29 @@ let panelScroll = {};
 function renderPanel(scrollTop) {
   const i = store.step, st = STEPS[i], E = store.E;
   const body = $('#panelBody');
+  if (app.scrollTopNext) { scrollTop = true; app.scrollTopNext = false; }
   if (!scrollTop) panelScroll[i] = body.scrollTop;
   const pt = E.tiers.perStep[i];
   $('#panelHead').innerHTML = '';
   $('#panelHead').append(h('h2', {}, `${i}. ${st.title}`), h('div', { class: 'q' }, st.q),
-    h('div', { class: 'tiers' }, pt ? [h('span', { class: 'tag' }, `Cost here ${TIER_COST[pt.cost]}`), h('span', { class: 'tag' }, `Effort here ${TIER_EFFORT[pt.effort]}`)] : null,
+    E.blank ? '' : h('div', { class: 'tiers' }, pt ? [h('span', { class: 'tag' }, `Cost here ${TIER_COST[pt.cost]}`), h('span', { class: 'tag' }, `Effort here ${TIER_EFFORT[pt.effort]}`)] : null,
       h('span', { class: 'tag' }, `Total ${TIER_COST[E.tiers.cost]}, ${TIER_EFFORT[E.tiers.effort]}`)));
   body.innerHTML = '';
   try { body.append(...renderStep(i, app)); } catch (err) { console.error(err); body.append(h('p', { class: 'why' }, `This step hit an error: ${err.message}`)); }
   body.scrollTop = scrollTop ? 0 : panelScroll[i] || 0;
   $('#prevBtn').disabled = i === 0;
   $('#nextBtn').textContent = i === STEPS.length - 1 ? 'Done' : `Next: ${STEPS[i + 1].title}`;
+  $('#nextBtn').disabled = E.blank && i >= 1;
   $('#footTiers').textContent = '';
 }
 app.rerender = () => renderPanel(false);
 app.toggleOverlay = (k) => { app.overlays[k] = !app.overlays[k]; rebuildOverlays(); renderPanel(false); if (k === 'dims' && app.overlays.dims) setView('left'); };
-app.afterVehicleSwitch = () => { const C = VEHICLES[store.d.vehicle.id]; app.ui.family = C.family; toast(`Switched to the ${C.short}. Later choices were kept${store.lastChanges.length ? '; the body was clamped to the new chassis' : ''}.`); };
+app.afterVehicleSwitch = (fromBlank) => {
+  const C = VEHICLES[store.d.vehicle.id]; app.ui.family = C.family; app.scrollTopNext = true;
+  toast(fromBlank ? `Picked the ${C.short}. Here it is stock; each step from here adds its layer.` : `Switched to the ${C.short}. Later choices were kept${store.lastChanges.length ? '; the body was clamped to the new chassis' : ''}.`);
+};
+app.resume = () => { if (app.saved) loadDesign(app.saved, `Resumed ${app.saved.name}`); };
+app.newBlank = () => loadDesign(blankDesign(), 'Started a blank design: set the brief, then pick a vehicle');
 app.fitReady = (id) => app.fitDone.has(id);
 function warmFits() {
   const ids = VEHICLE_IDS.filter((id) => !app.fitDone.has(id));
@@ -374,6 +432,8 @@ function openStart(tab = 'starters') {
   const tabs = h('div', { class: 'tabs seg' }, [['starters', 'Starters'], ['cards', 'Reality checks']].map(([id, lab]) => h('button', { type: 'button', 'aria-pressed': String(id === tab), onclick: () => openStart(id) }, lab)));
   body.append(tabs);
   if (tab === 'starters') {
+    body.append(h('div', { class: 'start-grid' }, h('button', { type: 'button', class: 'ocard', onclick: () => { app.newBlank(); $('#startDlg').close(); } },
+      h('div', { class: 't' }, 'Blank design'), h('div', { class: 'd' }, 'No vehicle, nothing built. Set the brief, pick a vehicle, then add one layer per step.'))));
     body.append(h('p', { class: 'note' }, 'Each starter is a complete design you can change step by step. Pingüina is the reference build: load it to see a real one.'),
       h('div', { class: 'start-grid' }, STARTERS.map((s) => h('button', { type: 'button', class: 'ocard', onclick: () => { loadDesign(s.build(), `Loaded ${s.label}`); $('#startDlg').close(); } },
         h('div', { class: 't' }, s.label, s.reference ? h('span', { class: 'tag' }, 'reference') : null),
@@ -388,8 +448,9 @@ function openStart(tab = 'starters') {
 }
 function loadDesign(d, msg) {
   app.card = null;
-  setDesign(d);
   store.step = 0; store.lastChanges = [];
+  stageLayers();
+  setDesign(d);
   app.ui.family = null;
   toast(msg);
   setTimeout(() => setView('hero'), 50);
@@ -418,6 +479,7 @@ function renderCardBanner() {
 }
 function renderCompare() {
   const bar = $('#compareBar');
+  if (store.E.blank) app.compareOn = false;
   if (!app.compareOn) { bar.hidden = true; clearOthers(); return; }
   bar.hidden = false; bar.innerHTML = '';
   const list = app.compare.map((d) => ({ d, E: evaluate(d, { viewCone: true }) }));
@@ -479,6 +541,7 @@ function renderImage() {
 }
 let sheetUrl = null;
 async function renderSheet() {
+  if (store.E.blank) { toast('Pick a vehicle first'); return; }
   document.body.classList.add('busy');
   try { if (document.fonts && document.fonts.load) await document.fonts.load('500 34px "Barlow Condensed"'); } catch (e) { /* offline fonts */ }
   const W = 3072, H = 2048, g = 12, FOV = 24;
@@ -546,6 +609,7 @@ app.shareLink = shareLink;
 const drive = { on: false, v: 0, steer: 0, keys: new Set(), dragging: false };
 const DRIVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 function setDrive(on) {
+  if (on && store.E.blank) { toast('Pick a vehicle first'); return; }
   drive.on = on;
   document.body.classList.toggle('driving', on);
   $('#hud').hidden = !on;
@@ -616,6 +680,7 @@ function wire() {
   });
   $('#shareBtn').addEventListener('click', () => { shareLink(); menu.hidden = true; });
   $('#glbBtn').addEventListener('click', () => { exportGLB(); menu.hidden = true; });
+  $('#newBtn').addEventListener('click', () => { app.newBlank(); menu.hidden = true; });
   $('#undoBtn').addEventListener('click', () => { toast(undo() ? 'Undid the last change' : 'Nothing to undo'); menu.hidden = true; });
   $('#compareBtn').addEventListener('click', () => {
     app.compareOn = !app.compareOn;
@@ -667,6 +732,8 @@ async function boot() {
   wire();
   if (innerWidth <= 900) document.body.classList.add('panel-hidden');
   store.d = loadInitial();
+  app.saved = savedDesign();
+  stageLayers();
   store.E = evaluate(store.d, { trusted: true });
   $('#designName').value = store.d.name;
   refreshTopbar();
@@ -696,7 +763,7 @@ function frame(now) {
 }
 window.__studio = {
   store, app, setValue, setDesign, evaluate, setView, goStep, renderSheet, exportGLB, shareLink, setDrive, loadCard: (id, w) => loadCard(CARDS.find((c) => c.id === id), w),
-  starters: STARTERS.map((s) => s.id), loadStarter: (id) => loadDesign(STARTERS.find((s) => s.id === id).build(), 'Loaded'),
+  starters: STARTERS.map((s) => s.id), loadStarter: (id) => loadDesign(STARTERS.find((s) => s.id === id).build(), 'Loaded'), newBlank: () => app.newBlank(),
   pause: (v) => { paused = v; }, car,
   snap: () => {
     tween = null; controls.update(); updateFrameUniforms();

@@ -9,6 +9,26 @@ def check(cond, msg):
     if not cond: fails.append(msg)
 with sync_playwright() as p:
     b, pg, errs = open_studio(p)
+    # a first visit opens blank: no vehicle, nothing built, later steps locked
+    settle(pg)
+    check(pg.evaluate("window.__studio.store.E.blank && !window.__studio.car.root"), 'opens on a blank design with nothing built')
+    check(pg.evaluate("[...document.querySelectorAll('#stepper .step')].filter(b => b.disabled).length") == 7, 'steps after the vehicle wait for a vehicle')
+    # brief buttons answer right away, every time
+    for lab, path, want in [('$$$', 'budget', 3), ('Light', 'effort', 1), ('$', 'budget', 1), ('Heavy', 'effort', 3)]:
+        pg.locator(f'#panelBody .seg button:text-is("{lab}")').click()
+        check(pg.locator(f'#panelBody .seg button:text-is("{lab}")').get_attribute('aria-pressed') == 'true' and pg.evaluate(f"window.__studio.store.d.brief.{path}") == want, f'brief button {lab} takes')
+    check(pg.locator('#panelBody', has_text='Crew skills').count() == 1 and pg.locator('#panelBody', has_text='Chassis').count() == 0, 'crew skills are an output; no chassis age')
+    # pick a vehicle: the view shows the stock vehicle alone
+    pg.click('#nextBtn'); pg.wait_for_timeout(300)
+    pg.locator('#panelBody .fams button:text-is("Cab-over trucks")').click(); pg.wait_for_timeout(200)
+    pg.locator('#panelBody .ocard', has_text='Isuzu NPR-HD').first.click()
+    settle(pg, "window.__studio.store.E.d.vehicle.id === 'npr'", 600)
+    vis = pg.evaluate("window.__studio.car.root.children.filter(g => g.visible).map(g => g.userData.layer)")
+    check(set(vis) == {'vehicle'}, f'vehicle step shows the vehicle only ({sorted(set(vis))})')
+    check(pg.locator('#panelBody .yours', has_text='Isuzu NPR-HD').count() == 1, 'your vehicle sits at the top of the step')
+    pg.evaluate("window.__studio.goStep(3)"); pg.wait_for_timeout(500)
+    vis = set(pg.evaluate("window.__studio.car.root.children.filter(g => g.visible).map(g => g.userData.layer)"))
+    check(vis == {'vehicle', 'structure'}, f'structure step adds the structure ({sorted(vis)})')
     pg.evaluate("window.__studio.loadStarter('pinguina')"); settle(pg, "window.__studio.store.E.d.name.startsWith('Pingüina')")
     # save
     pg.click('#fileBtn')

@@ -10,7 +10,7 @@ import { measure, transportCheck } from './transport.js';
 import { dmvCheck } from './dmv.js';
 import { viewCone } from './viewcone.js';
 import { powerBudget } from './power.js';
-import { tierTotals, missingSkills } from './tiers.js';
+import { tierTotals, requiredSkills } from './tiers.js';
 import { teardownPlan } from './teardown.js';
 import { bodyLimits } from './limits.js';
 import { scorecard, collectFlags } from './scorecard.js';
@@ -28,8 +28,15 @@ export const STEPS = [
 ];
 const RANK = { ok: 0, info: 0, na: 0, amber: 1, red: 2 };
 
+/* A blank design (no vehicle yet) has nothing to measure: an empty evaluation the UI knows how to show. */
+function blankEvaluation(d) {
+  return { d, blank: true, score: [], flags: [], red: [], flagIds: new Set(), skills: [],
+    tiers: { cost: 0, effort: 0, points: [0, 0], perStep: {}, lines: [] },
+    steps: STEPS.map((st) => ({ ...st, status: 'ok', items: [] })) };
+}
 export function evaluate(design, opts = {}) {
   const d = opts.trusted ? design : sanitize(design);
+  if (!d.vehicle.id) return blankEvaluation(d);
   const s = params(d), C = vehicleOf(d.vehicle.id);
   const model = buildCar(s, C), g = model.geom;
   const w = buildWeights(g, s, C);
@@ -41,10 +48,10 @@ export function evaluate(design, opts = {}) {
   const view = opts.viewCone === false ? null : viewCone(model.root, g);
   const power = powerBudget(model.root, g, s);
   const tiers = tierTotals(d, s, C, g);
-  const missing = missingSkills(d, s);
+  const skills = requiredSkills(d, s);
   const teardown = teardownPlan(g, s, w);
   const limits = bodyLimits(s, C);
-  const E = { d, s, C, model, g, w, rc, tip, dims, tr, dmv, view, power, tiers, missing, teardown, limits };
+  const E = { d, s, C, model, g, w, rc, tip, dims, tr, dmv, view, power, tiers, skills, teardown, limits };
   E.score = scorecard(E, d);
   E.flags = collectFlags(E, d);
   E.steps = STEPS.map((st, i) => {

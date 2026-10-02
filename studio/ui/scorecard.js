@@ -8,6 +8,11 @@ let openId = null;
 export function renderScorecard(host, onStep) {
   const E = store.E;
   host.innerHTML = '';
+  if (E.blank) {
+    host.append(h('div', { class: 'score-head' }, h('h2', {}, 'Scorecard'), h('span', {}, 'nothing built yet')),
+      h('p', { class: 'note' }, 'Riders, weight, tipping, transport and the DMV checks fill in as soon as you pick a vehicle in step 1.'));
+    return;
+  }
   const red = E.score.filter((l) => l.status === 'red').length + E.flags.filter((f) => f.severity === 'red').length;
   const amber = E.score.filter((l) => l.status === 'amber').length + E.flags.filter((f) => f.severity === 'amber').length;
   host.append(h('div', { class: 'score-head' }, h('h2', {}, 'Scorecard'), h('span', {}, red ? `${red} red, ${amber} amber` : amber ? `${amber} amber` : 'all clear')));
