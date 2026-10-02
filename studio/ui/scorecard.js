@@ -30,7 +30,8 @@ export function showExplain(l, anchor, onStep) {
   openId = l.id;
   const x = l.explain || {};
   pop.innerHTML = '';
-  pop.append(
+  const add = (...kids) => pop.append(...kids.flat(2).filter((k) => k != null && k !== false));
+  add(
     h('button', { type: 'button', class: 'chip close', onclick: hideExplain }, 'Close'),
     h('h2', {}, h('span', { class: 'dot ' + l.status }), l.label),
     l.value ? h('p', {}, h('strong', {}, l.value)) : null,

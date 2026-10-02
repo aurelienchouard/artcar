@@ -378,7 +378,8 @@ function transport(app) {
   const diff = ['', 'easy', 'moderate', 'hard'];
   const m = (x, f) => (Number.isFinite(x) ? f(x) : null);
   const optCards = h('div', { class: 'cards' }, tr.options.map((o) => h('button', { type: 'button', class: 'ocard', 'aria-pressed': String(o.id === d.transport.trailer), onclick: () => setValue('transport.trailer', o.id) },
-    h('div', { class: 't' }, h('span', {}, TRAILERS[o.id].label), h('span', { class: 'tag ' + (o.fits ? (o.status === 'amber' ? 'amber' : 'ok') : 'red') }, o.fits ? 'fits' : o.problems[0])),
+    h('div', { class: 't' }, h('span', {}, TRAILERS[o.id].label), h('span', { class: 'tag ' + (o.fits ? (o.status === 'amber' ? 'amber' : 'ok') : 'red') }, o.fits ? 'fits' : o.problems[0].split(':')[0])),
+    !o.fits && o.problems[0].includes(':') ? h('div', { class: 'd' }, o.problems[0].split(': ').slice(1).join(': ')) : null,
     h('div', { class: 'meta' },
       h('span', { class: 'tag' }, `${diff[o.difficulty]}`),
       h('span', { class: 'tag ' + (o.margins.height < 0 ? 'red' : o.margins.height < R('haulAmberMargin') ? 'amber' : 'ok') }, o.margins.height >= 0 ? `height: ${IN(o.margins.height)} to spare` : `height: ${IN(-o.margins.height)} over`),

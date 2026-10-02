@@ -39,20 +39,22 @@ export function dimsOverlay(E, units) {
   dim(g, [fa + C.ba + 0.5, y, -s.track / 2], [fa + C.ba + 0.5, y, s.track / 2], `Track ${L(s.track)}`);
   return g;
 }
-/* The driver's view cone: clear rays faint green, blocked rays red up to what blocks them. */
+/* The driver's view cone: its outline in green, and a red dot wherever a sight line is blocked. */
 export function viewConeViz(view) {
   const g = new T.Group(); g.name = 'View cone';
   if (!view) return g;
-  const hit = [], clear = [];
-  for (const r of view.rays) {
-    const t = r.hit ? r.t : Math.min(r.t, 6);
-    const end = [view.eye[0] + r.d[0] * t, view.eye[1] + r.d[1] * t, view.eye[2] + r.d[2] * t];
-    (r.hit ? hit : clear).push(...view.eye, ...end);
-  }
-  for (const [pts, mat] of [[hit, MAT.rayHit], [clear, MAT.rayClear]]) {
-    if (!pts.length) continue;
-    const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(pts, 3));
-    const l = new T.LineSegments(geo, mat); l.renderOrder = 18; g.add(l);
+  const [nH, nV] = view.grid, edge = [], hits = [];
+  view.rays.forEach((r, k) => {
+    const i = Math.floor(k / nH), j = k % nH;
+    if (r.hit) hits.push(view.eye[0] + r.d[0] * r.t, view.eye[1] + r.d[1] * r.t, view.eye[2] + r.d[2] * r.t);
+    const onEdge = i === 0 || i === nV - 1 || j === 0 || j === nH - 1;
+    if (onEdge && (j === 0 || j === nH - 1 || j % 4 === 0)) { const t = Math.min(r.t, 5); edge.push(...view.eye, view.eye[0] + r.d[0] * t, view.eye[1] + r.d[1] * t, view.eye[2] + r.d[2] * t); }
+  });
+  if (edge.length) { const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(edge, 3)); const l = new T.LineSegments(geo, MAT.rayClear); l.renderOrder = 18; g.add(l); }
+  if (hits.length) {
+    const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(hits, 3));
+    const pts = new T.Points(geo, new T.PointsMaterial({ color: 0xff5a4a, size: 9, sizeAttenuation: false, depthTest: false, transparent: true }));
+    pts.renderOrder = 19; g.add(pts);
   }
   return g;
 }

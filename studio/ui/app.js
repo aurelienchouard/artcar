@@ -87,7 +87,7 @@ function applyVisibility() {
   for (const grp of car.root.children) {
     const { layer, pack } = grp.userData;
     let vis = L[layer] !== false;
-    if (layer === 'riders') vis = L.riders && L.layout && !packed && !(cut && pack === 'roof') && !(railsOff && pack === 'roof');
+    if (layer === 'riders') vis = L.riders && L.layout && !packed && v !== 'cockpit' && !(cut && pack === 'roof') && !(railsOff && pack === 'roof');
     if (packed && (pack === 'off' || (roofOff && pack === 'roof') || (railsOff && pack === 'rails'))) vis = false;
     if (cut && (pack === 'roof' || pack === 'rails')) vis = false;
     grp.visible = vis;
@@ -146,7 +146,7 @@ const VIEWS = [
   { id: 'top', label: 'Top', caption: 'Top view, roof cut away' },
   { id: 'lounge', label: 'Lounge', caption: 'Inside the lower lounge' },
   { id: 'roof', label: 'Roof deck', caption: 'On the upper deck' },
-  { id: 'cockpit', label: 'Driver’s seat', caption: 'From the driver’s seat: red rays are blocked, green are clear' },
+  { id: 'cockpit', label: 'Driver’s seat', caption: 'From the driver’s seat: green lines mark the view cone, red dots are blocked sight lines' },
   { id: 'frame', label: 'Frame only', caption: 'Steel only: the load-bearing structure' },
   { id: 'packed', label: 'Packed', caption: 'Packed for transport on the chosen trailer' },
 ];
@@ -189,7 +189,7 @@ function viewPose(id, fr) {
     case 'left': { const d = fitDist(sz.x, sz.y, fr, 1.18); return { p: new T.Vector3(c.x, c.y, b.min.z - d), t: c.clone() }; }
     case 'right': { const d = fitDist(sz.x, sz.y, fr, 1.18); return { p: new T.Vector3(c.x, c.y, b.max.z + d), t: c.clone() }; }
     case 'lounge': return { p: new T.Vector3(g.lx0 + 0.25, g.deckY + 1.5, 0), t: new T.Vector3(g.lx1 + 0.8, g.deckY + 0.55, 0) };
-    case 'cockpit': return { p: new T.Vector3(g.eye[0] - 0.9, g.eye[1] + 0.55, g.eye[2] - 0.25), t: new T.Vector3(g.eye[0] + 6, g.eye[1] - 0.6, g.eye[2] * 0.5) };
+    case 'cockpit': return { p: new T.Vector3(g.eye[0] - 0.12, g.eye[1] + 0.04, g.eye[2]), t: new T.Vector3(g.eye[0] + 8, g.eye[1] - 0.45, g.eye[2]) };
     case 'roof': return { p: new T.Vector3(g.dx0 - 1.7, g.roofTop + 2.9, 0), t: new T.Vector3(g.dx1 + 0.2, g.roofTop + 0.1, 0) };
     case 'chase': return { p: new T.Vector3(-15, 5.2, -5.5), t: new T.Vector3(0.5, 1.6, 0) };
     default: {

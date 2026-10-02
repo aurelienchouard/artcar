@@ -146,7 +146,8 @@ input[type=color]{width:38px;height:26px;border:1px solid var(--line);border-rad
 .ocard:hover{background:var(--dusk-3)}
 .ocard[aria-pressed="true"]{border-color:var(--led);box-shadow:0 0 0 1px var(--led) inset}
 .ocard:disabled{opacity:.45;cursor:not-allowed}
-.ocard .t{font-weight:600;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.ocard .t{font-weight:600;display:flex;justify-content:space-between;gap:4px 8px;align-items:baseline;flex-wrap:wrap}
+.ocard .tag{white-space:normal;max-width:100%}
 .ocard .d{font-size:12.5px;color:var(--rebar);margin-top:2px}
 .ocard .why{font-size:12px;color:#ffd7a0;margin-top:4px}
 .ocard .meta{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
@@ -5176,19 +5177,29 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     const g = new T4.Group();
     g.name = "View cone";
     if (!view) return g;
-    const hit = [], clear = [];
-    for (const r of view.rays) {
-      const t = r.hit ? r.t : Math.min(r.t, 6);
-      const end = [view.eye[0] + r.d[0] * t, view.eye[1] + r.d[1] * t, view.eye[2] + r.d[2] * t];
-      (r.hit ? hit : clear).push(...view.eye, ...end);
-    }
-    for (const [pts, mat] of [[hit, MAT.rayHit], [clear, MAT.rayClear]]) {
-      if (!pts.length) continue;
+    const [nH, nV] = view.grid, edge = [], hits = [];
+    view.rays.forEach((r, k) => {
+      const i = Math.floor(k / nH), j = k % nH;
+      if (r.hit) hits.push(view.eye[0] + r.d[0] * r.t, view.eye[1] + r.d[1] * r.t, view.eye[2] + r.d[2] * r.t);
+      const onEdge = i === 0 || i === nV - 1 || j === 0 || j === nH - 1;
+      if (onEdge && (j === 0 || j === nH - 1 || j % 4 === 0)) {
+        const t = Math.min(r.t, 5);
+        edge.push(...view.eye, view.eye[0] + r.d[0] * t, view.eye[1] + r.d[1] * t, view.eye[2] + r.d[2] * t);
+      }
+    });
+    if (edge.length) {
       const geo2 = new T4.BufferGeometry();
-      geo2.setAttribute("position", new T4.Float32BufferAttribute(pts, 3));
-      const l = new T4.LineSegments(geo2, mat);
+      geo2.setAttribute("position", new T4.Float32BufferAttribute(edge, 3));
+      const l = new T4.LineSegments(geo2, MAT.rayClear);
       l.renderOrder = 18;
       g.add(l);
+    }
+    if (hits.length) {
+      const geo2 = new T4.BufferGeometry();
+      geo2.setAttribute("position", new T4.Float32BufferAttribute(hits, 3));
+      const pts = new T4.Points(geo2, new T4.PointsMaterial({ color: 16734794, size: 9, sizeAttenuation: false, depthTest: false, transparent: true }));
+      pts.renderOrder = 19;
+      g.add(pts);
     }
     return g;
   }
@@ -11421,7 +11432,8 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     const optCards = h("div", { class: "cards" }, tr.options.map((o) => h(
       "button",
       { type: "button", class: "ocard", "aria-pressed": String(o.id === d.transport.trailer), onclick: () => setValue("transport.trailer", o.id) },
-      h("div", { class: "t" }, h("span", {}, TRAILERS[o.id].label), h("span", { class: "tag " + (o.fits ? o.status === "amber" ? "amber" : "ok" : "red") }, o.fits ? "fits" : o.problems[0])),
+      h("div", { class: "t" }, h("span", {}, TRAILERS[o.id].label), h("span", { class: "tag " + (o.fits ? o.status === "amber" ? "amber" : "ok" : "red") }, o.fits ? "fits" : o.problems[0].split(":")[0])),
+      !o.fits && o.problems[0].includes(":") ? h("div", { class: "d" }, o.problems[0].split(": ").slice(1).join(": ")) : null,
       h(
         "div",
         { class: "meta" },
@@ -11497,7 +11509,8 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     openId = l.id;
     const x = l.explain || {};
     pop.innerHTML = "";
-    pop.append(
+    const add = (...kids) => pop.append(...kids.flat(2).filter((k) => k != null && k !== false));
+    add(
       h("button", { type: "button", class: "chip close", onclick: hideExplain }, "Close"),
       h("h2", {}, h("span", { class: "dot " + l.status }), l.label),
       l.value ? h("p", {}, h("strong", {}, l.value)) : null,
@@ -11803,7 +11816,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     for (const grp of car.root.children) {
       const { layer, pack } = grp.userData;
       let vis = L2[layer] !== false;
-      if (layer === "riders") vis = L2.riders && L2.layout && !packed && !(cut && pack === "roof") && !(railsOff && pack === "roof");
+      if (layer === "riders") vis = L2.riders && L2.layout && !packed && v !== "cockpit" && !(cut && pack === "roof") && !(railsOff && pack === "roof");
       if (packed && (pack === "off" || roofOff && pack === "roof" || railsOff && pack === "rails")) vis = false;
       if (cut && (pack === "roof" || pack === "rails")) vis = false;
       grp.visible = vis;
@@ -11876,7 +11889,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     { id: "top", label: "Top", caption: "Top view, roof cut away" },
     { id: "lounge", label: "Lounge", caption: "Inside the lower lounge" },
     { id: "roof", label: "Roof deck", caption: "On the upper deck" },
-    { id: "cockpit", label: "Driver\u2019s seat", caption: "From the driver\u2019s seat: red rays are blocked, green are clear" },
+    { id: "cockpit", label: "Driver\u2019s seat", caption: "From the driver\u2019s seat: green lines mark the view cone, red dots are blocked sight lines" },
     { id: "frame", label: "Frame only", caption: "Steel only: the load-bearing structure" },
     { id: "packed", label: "Packed", caption: "Packed for transport on the chosen trailer" }
   ];
@@ -11949,7 +11962,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       case "lounge":
         return { p: new T5.Vector3(g.lx0 + 0.25, g.deckY + 1.5, 0), t: new T5.Vector3(g.lx1 + 0.8, g.deckY + 0.55, 0) };
       case "cockpit":
-        return { p: new T5.Vector3(g.eye[0] - 0.9, g.eye[1] + 0.55, g.eye[2] - 0.25), t: new T5.Vector3(g.eye[0] + 6, g.eye[1] - 0.6, g.eye[2] * 0.5) };
+        return { p: new T5.Vector3(g.eye[0] - 0.12, g.eye[1] + 0.04, g.eye[2]), t: new T5.Vector3(g.eye[0] + 8, g.eye[1] - 0.45, g.eye[2]) };
       case "roof":
         return { p: new T5.Vector3(g.dx0 - 1.7, g.roofTop + 2.9, 0), t: new T5.Vector3(g.dx1 + 0.2, g.roofTop + 0.1, 0) };
       case "chase":
