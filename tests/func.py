@@ -1,5 +1,5 @@
 import pathlib
-PAGE = (pathlib.Path(__file__).resolve().parent.parent / 'dist' / 'index.html').as_uri()
+PAGE = (pathlib.Path(__file__).resolve().parent.parent / 'dist' / 'v1' / 'index.html').as_uri()
 import base64, json, struct, time
 from playwright.sync_api import sync_playwright
 with sync_playwright() as p:

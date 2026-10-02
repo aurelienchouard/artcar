@@ -1,5 +1,5 @@
 import pathlib
-PAGE = (pathlib.Path(__file__).resolve().parent.parent / 'dist' / 'index.html').as_uri()
+PAGE = (pathlib.Path(__file__).resolve().parent.parent / 'dist' / 'v1' / 'index.html').as_uri()
 pathlib.Path('tests/shots').mkdir(parents=True, exist_ok=True)
 import sys, base64
 from playwright.sync_api import sync_playwright

@@ -1,0 +1,68 @@
+/* Cost and effort tiers (section 4.9): every option carries points; totals map to bands from the rules table. */
+import { R } from '../catalogs/rules.js';
+import { POINTS } from '../catalogs/tiers.js';
+import { TUBE_BUILDS } from '../catalogs/kits.js';
+import { MATERIALS } from '../catalogs/materials.js';
+
+const band = (list, v) => list.find(([lim]) => v <= lim)[1];
+export const stepTier = (p) => (p <= 0 ? 0 : p === 1 ? 1 : p <= 3 ? 2 : 3);
+export function bandOf(points, kind) {
+  const b2 = R(kind === 'cost' ? 'costBand2' : 'effortBand2'), b3 = R(kind === 'cost' ? 'costBand3' : 'effortBand3');
+  return points >= b3 ? 3 : points >= b2 ? 2 : 1;
+}
+export function tierTotals(d, s, C, g) {
+  const steps = {};
+  const lines = [];
+  const add = (step, [c, e], label) => {
+    if (!c && !e) return;
+    steps[step] = steps[step] || [0, 0];
+    steps[step][0] += c; steps[step][1] += e;
+    lines.push({ step, label, cost: c, effort: e });
+  };
+  add(1, [C.costTier || 2, C.effortTier || 2], C.short);
+  if (C.style === 'cart') { add(2, d.strip.rops ? POINTS.rops.kept : POINTS.rops.removed, d.strip.rops ? 'Keep the roll bar' : 'Remove the roll bar'); if (!d.strip.bed) add(2, [0, 1], 'Remove the cargo bed'); }
+  else add(2, POINTS.strip[d.strip.level], { stock: 'Stock cab', cut: 'Cut at the windshield base', rails: 'Strip to frame rails' }[d.strip.level]);
+  add(3, POINTS.structure[d.structure.style], 'Structure style');
+  add(3, POINTS.material[d.structure.material], 'Aluminum secondary members');
+  add(3, band(POINTS.size, g.bodyL * g.floorW), 'Deck size');
+  if (s.roofDeck) {
+    add(4, POINTS.upper[d.upper.kind], 'Upper deck');
+    add(4, POINTS.access[d.upper.access], 'Access');
+    add(4, POINTS.coverage[d.upper.coverage], 'Deck coverage');
+  }
+  add(5, POINTS.seating[d.layout.seating], 'Lower seating');
+  if (g.rearLen > 0) add(5, POINTS.rear[d.layout.rear], 'Rear section');
+  for (const z of g.zones) add(5, POINTS.zone, z.name);
+  for (const k of s.kits || []) {
+    if (k.id === 'side-tubes') { const tb = TUBE_BUILDS[k.p.build] || TUBE_BUILDS.sheet; add(6, [Math.max(k.def.costTier, tb.cost), Math.max(k.def.effortTier, tb.effort)], `Side tubes, ${tb.label.toLowerCase()}`); continue; }
+    const m = MATERIALS[k.p.material];
+    add(6, [Math.max(k.def.costTier, m ? m.cost : 0), Math.max(k.def.effortTier, m ? m.effort : 0)], k.def.name);
+  }
+  add(7, POINTS.leds, 'LED lines and edges');
+  if (s.roofDeck && s.neon) add(7, POINTS.neon, 'Neon sign');
+  if (g.projectorCount) add(7, POINTS.projectors, 'Projectors');
+  add(7, POINTS.speakers[s.speakers] || [0, 0], 'Speakers');
+  if (s.speakers !== 'none' && s.speakerSize === 'large') add(7, POINTS.speakerLarge, 'Large speakers');
+  add(7, band(POINTS.battery, s.batteryKwh), 'Battery bank');
+  if (s.power === 'generator') add(7, POINTS.generator, 'Generator');
+  const cost = Object.values(steps).reduce((a, v) => a + v[0], 0), effort = Object.values(steps).reduce((a, v) => a + v[1], 0);
+  const perStep = Object.fromEntries(Object.entries(steps).map(([k, [c, e]]) => [k, { cost: stepTier(c), effort: stepTier(e), points: [c, e] }]));
+  return { cost: bandOf(cost, 'cost'), effort: bandOf(effort, 'effort'), points: [cost, effort], perStep, lines };
+}
+
+/* Skills the design needs that the crew doesn't list. */
+export function missingSkills(d, s) {
+  const need = [];
+  const want = (skill, what) => { if (!d.brief.skills.includes(skill)) need.push({ skill, what }); };
+  want('welding', 'the steel structure');
+  if (d.structure.material === 'alu') want('welding', 'aluminum secondary members (TIG)');
+  want('electrical', 'lights, sound and power');
+  for (const k of s.kits || []) {
+    const skills = new Set(k.def.skills || []);
+    if (k.id === 'side-tubes') (TUBE_BUILDS[k.p.build]?.skills || []).forEach((x) => skills.add(x));
+    const m = MATERIALS[k.p.material]; if (m) m.skills.forEach((x) => skills.add(x));
+    for (const sk of skills) want(sk, k.def.name.toLowerCase());
+  }
+  const seen = new Set();
+  return need.filter((n) => { const key = n.skill + n.what; if (seen.has(key)) return false; seen.add(key); return true; });
+}

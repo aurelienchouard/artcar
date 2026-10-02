@@ -1,12 +1,17 @@
 {
   "name": "artcar-studio",
-  "version": "6.0.0",
+  "version": "7.0.0",
   "private": true,
   "description": "Art Car Studio: a single-file, offline 3D planner for Burning Man art cars",
   "scripts": {
-    "build": "python3 build.py",
+    "build": "python3 build.py && node studio/build.mjs",
+    "build:v1": "python3 build.py",
+    "build:v2": "node studio/build.mjs",
     "bundle-three": "esbuild src/three-entry.js --bundle --minify --format=iife --outfile=vendor/three-bundle.js",
-    "test": "python3 tests/stress.py && python3 tests/func.py"
+    "test": "npm run test:engine && python3 tests/v2_stress.py && python3 tests/v2_func.py",
+    "test:engine": "node --test studio/test/*.test.mjs",
+    "test:v1": "python3 tests/stress.py && python3 tests/func.py",
+    "snapshots": "python3 tests/v2_snapshots.py"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
