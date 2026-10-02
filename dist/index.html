@@ -242,6 +242,12 @@ body.busy{cursor:progress}
   .view-buttons{flex-wrap:nowrap;overflow-x:auto}
   .card-banner,.compare-bar{left:var(--gap);right:var(--gap)}
 }
+/* vehicle step: the chosen vehicle on top, the catalog below */
+.yours{background:rgba(255,255,255,.05);border:1px solid var(--led);border-radius:12px;padding:10px 12px 4px;margin:4px 0 14px}
+.yours h3{margin:2px 0 4px}
+.yours .k{text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.legend{font-size:12px}
+.step:disabled{opacity:.4;cursor:not-allowed}
 </style>
 </head>
 <body data-mood="night">
@@ -256,6 +262,7 @@ body.busy{cursor:progress}
     <div class="menu-wrap">
       <button type="button" class="btn" id="fileBtn" aria-haspopup="true" aria-expanded="false">File</button>
       <div class="menu glass" id="fileMenu" hidden>
+        <button type="button" id="newBtn">New blank design</button>
         <button type="button" id="saveBtn">Save design (.json)</button>
         <button type="button" id="openBtn">Open design…</button>
         <button type="button" id="shareBtn">Copy share link</button>
@@ -4696,6 +4703,11 @@ vec3 ledEmission(vec3 p){
     MAT.head = std({ color: 7829367, emissive: 16774108, emissiveIntensity: 1.6 });
     MAT.screen = std({ color: 725792, emissive: 3829416, emissiveIntensity: 0.9 });
     MAT.cab = std({ roughness: 0.32, metalness: 0.2 });
+    MAT.chassis = std({ color: 9212054, metalness: 0.45, roughness: 0.5 });
+    MAT.trim = std({ color: 2763566, roughness: 0.72, metalness: 0.05 });
+    MAT.tint = std({ color: 2568252, metalness: 0.4, roughness: 0.08 });
+    MAT.chrome = std({ color: 14211806, metalness: 0.95, roughness: 0.18 });
+    MAT.amber = std({ color: 8014344, emissive: 16751130, emissiveIntensity: 0.9 });
     MAT.grille = std({ color: 1710877, metalness: 0.75, roughness: 0.32 });
     MAT.glass = std({ color: 1779251, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.4, depthWrite: false, side: T.DoubleSide });
     MAT.bowl = std({ color: 15134451, roughness: 0.05, transparent: true, opacity: 0.3, depthWrite: false });
@@ -5278,12 +5290,11 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     "brief.budget": { type: "enum", label: "Budget", options: opt([1, "$"], [2, "$$"], [3, "$$$"]), def: 2 },
     "brief.effort": { type: "enum", label: "Build effort the crew can handle", options: opt([1, "Light"], [2, "Moderate"], [3, "Heavy"]), def: 2 },
     "brief.powertrain": { type: "enum", label: "Powertrain", options: opt(["either", "Either"], ["electric", "Electric"], ["gas", "Gas or diesel"]), def: "either" },
-    "brief.age": { type: "enum", label: "Chassis", options: opt(["used", "Used, if serviceable"], ["new", "New"]), def: "used" },
     "brief.transport": { type: "enum", label: "Getting it there", options: opt(["any", "Any way"], ["drive", "Drive it"], ["tow", "Tow it ourselves"], ["hauler", "Hire a hauler"]), def: "any" },
     "brief.vibes": { type: "set", label: "Vibe", options: opt(["lounge", "Lounge"], ["dance", "Dance floor"], ["bar", "Bar"], ["sound", "Sound camp"], ["chill", "Quiet chill"]), def: [] },
-    "brief.skills": { type: "set", label: "Crew skills", options: opt(["welding", "Welding"], ["cnc", "CNC"], ["woodworking", "Woodworking"], ["electrical", "Electrical"]), def: ["welding", "woodworking", "electrical"] },
     /* step 1: vehicle */
-    "vehicle.id": { type: "vehicle", label: "Vehicle", def: "express" },
+    "vehicle.id": { type: "vehicle", label: "Vehicle", def: null },
+    // null: a blank design, nothing picked yet
     "vehicle.wheelbase": { type: "num", min: 1.2, max: 7, step: 0.01, fmt: "len", label: "Wheelbase", def: 4.04 },
     "vehicle.whatIf": { type: "bool", label: "What-if: change the chassis numbers", def: false },
     "vehicle.track": { type: "num", min: 0.8, max: 2.4, step: 0.01, fmt: "len", label: "Track width", def: 1.75 },
@@ -5294,7 +5305,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     "strip.rops": { type: "bool", label: "Keep the factory canopy and roll bar", def: false },
     "strip.bed": { type: "bool", label: "Keep the stock cargo bed", def: true },
     /* step 3: structure */
-    "structure.style": { type: "enum", label: "Structure style", options: opt(["deck-posts", "Deck and posts"], ["cage", "Full cage"], ["barge", "Low party barge"], ["bed-ext", "Cart bed extension"]), def: "deck-posts" },
+    "structure.style": { type: "enum", label: "Structure style", options: opt(["barge", "Low party barge"], ["deck-posts", "Deck and posts"], ["cage", "Full cage"], ["bed-ext", "Cart bed extension"]), def: "deck-posts" },
     "structure.length": { type: "num", min: 2.5, max: 12, step: 0.05, fmt: "len", label: "Body length", def: 5.9, lim: "length" },
     "structure.width": { type: "num", min: 1.4, max: 4.4, step: 0.01, fmt: "len", label: "Body width", def: 2.84, lim: "width" },
     "structure.bodyFront": { type: "num", min: -0.5, max: 2.6, step: 0.01, fmt: "len", label: "Body front, ahead of the front axle", def: 0.2, lim: "bodyFront" },
@@ -5335,13 +5346,13 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     "layout.bikeRack": { type: "enum", label: "Bike racks, hung by the front wheel", options: opt(["none", "None"], ["rear", "On the back"], ["sides", "On both sides"], ["both", "Back and sides"]), def: "rear" },
     "layout.bikes": { type: "int", min: 1, max: 10, step: 1, label: "Bikes per rack", def: 4 },
     /* step 6: design */
-    "design.colors.frame": { type: "color", label: "Frame and roof", def: "#2b2d31" },
+    "design.colors.frame": { type: "color", label: "Frame and roof", def: "#1c1d20" },
     "design.colors.tube": { type: "color", label: "Panels and skins", def: "#3a3d42" },
     "design.colors.shade": { type: "color", label: "Shade cloth", def: "#34363a" },
     "design.colors.fabric": { type: "color", label: "Cushions and curtains", def: "#d9cfbf" },
     "design.colors.accent": { type: "color", label: "Throw pillows and awning", def: "#b8702c" },
     "design.colors.rug": { type: "color", label: "Rug", def: "#b19a77" },
-    "design.colors.cabMatch": { type: "bool", label: "Vehicle paint matches the panels", def: true },
+    "design.colors.cabMatch": { type: "bool", label: "Vehicle paint matches the panels", def: false },
     "design.colors.cab": { type: "color", label: "Vehicle paint", def: "#e9e7e2" },
     /* step 7: lights and sound */
     "lights.ledLines": { type: "int", min: 0, max: 16, step: 1, label: "LED lines along each tube", def: 9 },
@@ -5361,7 +5372,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     /* step 8: transport */
     "transport.trailer": { type: "trailer", label: "Getting it there", def: "stepdeck" },
     /* view preferences saved with the design */
-    "view.mood": { type: "enum", label: "Light", options: opt(["day", "Day"], ["dusk", "Dusk"], ["night", "Night"]), def: "night" },
+    "view.mood": { type: "enum", label: "Light", options: opt(["day", "Day"], ["dusk", "Dusk"], ["night", "Night"]), def: "day" },
     "view.units": { type: "enum", label: "Units", options: opt(["imperial", "Feet and pounds"], ["metric", "Meters and kilograms"]), def: "imperial" }
   };
   var KIT_SLOTS = ["front", "side", "full", "train", "theme"];
@@ -6726,7 +6737,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   var TUBE_BUILDS = {
     sheet: { label: "Thin sheet over hoops", spacing: 0.6, skin: "alu", hoop: true, cost: 2, effort: 2, skills: ["welding"] },
     plyskin: { label: "Plywood ribs and skin", spacing: 0.4, skin: "ply", ribs: true, cost: 2, effort: 3, skills: ["cnc", "woodworking"] },
-    lattice: { label: "Plywood lattice, no skin (Ping\xFCina)", spacing: 0.61, ribs: true, lengthwise: "ply", cost: 2, effort: 3, skills: ["cnc", "woodworking"] },
+    lattice: { label: "Plywood lattice, no skin", spacing: 0.61, ribs: true, lengthwise: "ply", cost: 2, effort: 3, skills: ["cnc", "woodworking"] },
     perforated: { label: "Perforated metal over hoops", spacing: 0.61, skin: "perf", hoop: true, cost: 2, effort: 2, skills: ["welding"] },
     translucent: { label: "Translucent panels, lit inside", spacing: 0.6, skin: "poly", hoop: true, cost: 3, effort: 2, skills: ["welding"] },
     frame: { label: "Open metal frame", spacing: 0.45, hoop: true, lengthwise: "steel", cost: 1, effort: 2, skills: ["welding"] }
@@ -7750,6 +7761,9 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     d.kits.front = { id: "hood-cover", p: kitDefaults("hood-cover") };
     return d;
   }
+  function blankDesign() {
+    return defaultDesign();
+  }
   var V1_MAP = {
     wheelbase: "vehicle.wheelbase",
     track: "vehicle.track",
@@ -7837,7 +7851,8 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     applyFlat(d, typicalFlat(C));
     if (C.style === "cart" || C.family === "utility") d.kits.front = { id: "none", p: {} };
     d.name = `${C.short}, ${d.upper.kind === "none" ? "shade only" : "roof deck"}`;
-    return sanitize(Object.assign(d, extra));
+    for (const [k, v] of Object.entries(extra)) if (v !== void 0) d[k] = v;
+    return sanitize(d);
   }
   function typicalFlat(C) {
     const def = C.defaults || {};
@@ -7899,7 +7914,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       case "set":
         return Array.isArray(v) && v.every((x) => f.options.some((o) => o[0] === x));
       case "vehicle":
-        return typeof v === "string" && !!VEHICLES[v];
+        return v === null || typeof v === "string" && !!VEHICLES[v];
       case "trailer":
         return typeof v === "string" && !!TRAILERS[v];
       case "segments":
@@ -7936,6 +7951,10 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       if (k && (k.id === "none" || KITS[k.id] && KITS[k.id].category === slot)) d.kits[slot] = { id: k.id, p: k.id === "none" ? {} : sanitizeKitParams(k.id, k.p) };
       else if (src.kits) d.kits[slot] = { id: "none", p: {} };
     }
+    if (!d.vehicle.id) {
+      if (d.brief.ridersMin > d.brief.ridersMax) d.brief.ridersMin = d.brief.ridersMax;
+      return d;
+    }
     const C = vehicleOf(d.vehicle.id);
     if (!d.vehicle.whatIf) {
       d.vehicle.wheelbase = nearest(C.wheelbaseOptions, d.vehicle.wheelbase);
@@ -7950,6 +7969,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   var nearest = (opts, v) => opts.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a, opts[0]);
   function clampBody(d) {
     const changes = [];
+    if (!d.vehicle.id) return changes;
     const C = vehicleOf(d.vehicle.id);
     for (const k of ["bodyFront", "length", "width"]) {
       const lim = bodyLimits(params(d), C)[k];
@@ -8024,9 +8044,11 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     return s;
   }
   function switchVehicle(d0, id) {
-    const d = clone(d0), C = vehicleOf(id);
+    if (!d0.vehicle.id) return { design: starterDesign(id, { brief: clone(d0.brief), view: clone(d0.view), name: d0.name === defaultDesign().name ? void 0 : d0.name }), changes: [] };
+    const d = clone(d0), C = vehicleOf(id), C0 = vehicleOf(d0.vehicle.id);
     d.vehicle.id = C.id;
     d.vehicle.whatIf = false;
+    if (d.name.startsWith(`${C0.short}, `)) d.name = C.short + d.name.slice(C0.short.length);
     d.vehicle.wheelbase = C.wheelbaseOptions.find((w) => Math.abs(w - d0.vehicle.wheelbase) < 5e-3) ?? C.wheelbase;
     d.vehicle.track = Math.min(C.track.front, C.track.rear);
     d.vehicle.wheelDia = C.tire.diameter;
@@ -8093,6 +8115,57 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   }
   function meshGeo(pos, idx, uv) {
     return geo("Mesh", { pos, idx, uv });
+  }
+  function bevelSolid(profile2, width, bevel = 0.04) {
+    const n = profile2.length, b = Math.min(bevel, width / 2 - 1e-3);
+    const inset = profile2.map((p, i) => {
+      const a = profile2[(i + n - 1) % n], c = profile2[(i + 1) % n];
+      const n1 = norm2([-(p[1] - a[1]), p[0] - a[0]]), n2 = norm2([-(c[1] - p[1]), c[0] - p[0]]);
+      const m = [n1[0] + n2[0], n1[1] + n2[1]], k = b / Math.max(0.3, 1 + n1[0] * n2[0] + n1[1] * n2[1]);
+      return [p[0] + m[0] * k, p[1] + m[1] * k];
+    });
+    const layers = [[inset, -width / 2], [profile2, -width / 2 + b], [profile2, width / 2 - b], [inset, width / 2]];
+    const pos = [], idx = [];
+    const quad = (A, B, C, D) => {
+      const s = pos.length / 3;
+      pos.push(...A, ...B, ...C, ...D);
+      idx.push(s, s + 1, s + 2, s, s + 2, s + 3);
+    };
+    for (let L2 = 0; L2 < 3; L2++) {
+      const [p0, z0] = layers[L2], [p1, z1] = layers[L2 + 1];
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        quad([...p0[i], z0], [...p0[j], z0], [...p1[j], z1], [...p1[i], z1]);
+      }
+    }
+    for (const [pts, z, dir] of [[inset, width / 2, 1], [inset, -width / 2, -1]]) {
+      const s = pos.length / 3;
+      pts.forEach((p) => pos.push(p[0], p[1], z));
+      for (let i = 1; i < n - 1; i++) idx.push(...dir > 0 ? [s, s + i, s + i + 1] : [s, s + i + 1, s + i]);
+    }
+    return geo("Mesh", { pos, idx });
+  }
+  function norm2(v) {
+    const l = Math.hypot(v[0], v[1]) || 1;
+    return [v[0] / l, v[1] / l];
+  }
+  function latheZ(profile2, seg2 = 32) {
+    const pos = [], idx = [], m = profile2.length;
+    for (let k = 0; k <= seg2; k++) {
+      const a = k / seg2 * TAU22, c = Math.cos(a), s = Math.sin(a);
+      for (const [r, z] of profile2) pos.push(r * c, r * s, z);
+    }
+    for (let k = 0; k < seg2; k++) for (let i = 0; i < m - 1; i++) {
+      const a = k * m + i, b = a + 1, c = a + m, d = c + 1;
+      idx.push(a, d, b, a, c, d);
+    }
+    return geo("Mesh", { pos, idx });
+  }
+  var TAU22 = Math.PI * 2;
+  function profile(pts, width, bevel, mat, z, parent, shadow = true) {
+    const m = mesh(bevelSolid(pts, width, bevel), mat, parent, shadow);
+    m.position.set(0, 0, z);
+    return m;
   }
 
   // studio/engine/model/helpers.js
@@ -8719,62 +8792,94 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     if (ctx.C.style === "cart") buildCart(g, ctx);
     else buildTruck(g, ctx);
   }
+  function archLip(x, wr, z, mat, g, tube = 0.035) {
+    const R2 = wr + 0.07, a0 = Math.acos(Math.min(1, (wr - 0.01) / (R2 + tube)));
+    const m = mesh(geo("Torus", R2, tube, 6, 28, Math.PI - 2 * a0), mat, g);
+    m.position.set(x, wr, z);
+    m.rotation.z = a0;
+    return m;
+  }
   function buildCart(g, x) {
     const { s, C, fa, ra, cabFloor, seatY, driverX } = x;
     const bumper = fa + C.ba, rear = bumper - C.length;
+    const wr = s.wheelDia / 2, wTop = s.wheelDia + 0.02;
     const y0 = 0.16, y1 = s.frameHeight - 0.02 - (s.bed === false ? 0.1 : 0);
-    box(C.length, y1 - y0, C.width - 0.1, "cab", (bumper + rear) / 2, (y0 + y1) / 2, 0, g);
-    rbox(0.5, 0.62, C.cab.width, 0.06, "cab", bumper - 0.25, cabFloor + 0.31, 0, g);
-    for (const sz of [-1, 1]) box(0.02, 0.08, 0.18, "head", bumper + 5e-3, cabFloor + 0.42, sz * C.cab.width * 0.34, g, false);
-    box(0.25, 0.04, C.cab.width - 0.1, "leather", bumper - 0.5, cabFloor + 0.64, 0, g);
+    const bw = C.width - 0.1, cw = C.cab.width;
+    box(C.length - 0.4, 0.12, Math.max(0.4, bw * 0.45), "chassis", (bumper + rear) / 2, y0 + 0.1, 0, g);
+    const bodyBot = Math.min(y1 - 0.04, Math.max(y0 + 0.1, wTop));
+    profile([[rear, bodyBot], [bumper - 0.5, bodyBot], [bumper - 0.5, y1], [rear + 0.04, y1], [rear, y1 - 0.04]], bw, 0.03, "cab", 0, g);
+    const skirt = (xa, xb) => {
+      if (xb - xa > 0.08) rbox(xb - xa, bodyBot - y0 - 0.04, bw - 0.04, 0.02, "cab", (xa + xb) / 2, (bodyBot + y0 + 0.04) / 2, 0, g);
+    };
+    skirt(ra + wr + 0.07, fa - wr - 0.07);
+    skirt(rear, ra - wr - 0.07);
+    for (const ax of [fa, ra]) for (const sz of [-1, 1]) archLip(ax, wr, sz * (bw / 2 - 0.03), "trim", g, 0.03);
+    const cowlY = Math.max(0.14, cabFloor - 0.1);
+    profile([[bumper - 0.62, cowlY], [bumper, cowlY], [bumper, cabFloor + 0.42], [bumper - 0.13, cabFloor + 0.6], [bumper - 0.62, cabFloor + 0.64]], cw, 0.06, "cab", 0, g);
+    for (const sz of [-1, 1]) {
+      rbox(0.03, 0.09, 0.18, 0.012, "head", bumper + 5e-3, cabFloor + 0.4, sz * cw * 0.32, g);
+      box(0.02, 0.05, 0.1, "amber", bumper + 4e-3, cabFloor + 0.27, sz * cw * 0.38, g, false);
+    }
+    rbox(0.08, 0.16, cw - 0.06, 0.03, "trim", bumper - 0.02, cowlY + 0.06, 0, g);
+    box(Math.max(0.3, bumper - 0.6 - (driverX - 0.25)), 0.03, bw - 0.08, "trim", (bumper - 0.6 + driverX - 0.25) / 2, cabFloor - 0.015, 0, g);
+    box(0.25, 0.04, cw - 0.1, "leather", bumper - 0.5, cabFloor + 0.64, 0, g);
     for (const sz of [-1, 1]) {
       rbox(0.48, 0.13, 0.46, 0.05, "leather", driverX, seatY - 0.065, sz * Math.abs(C.seat.z), g);
       const b = rbox(0.1, 0.58, 0.44, 0.04, "leather", driverX - 0.26, seatY + 0.26, sz * Math.abs(C.seat.z), g);
       b.rotation.z = 0.16;
-      box(0.3, seatY - 0.13 - cabFloor, 0.3, "frame", driverX, (seatY - 0.13 + cabFloor) / 2, sz * Math.abs(C.seat.z), g);
+      box(0.3, seatY - 0.13 - cabFloor, 0.3, "cab", driverX, (seatY - 0.13 + cabFloor) / 2, sz * Math.abs(C.seat.z), g);
+      box(0.02, 0.07, 0.12, "tail", rear - 4e-3, y1 - 0.08, sz * (bw / 2 - 0.1), g, false);
     }
-    for (const ax of [fa, ra]) cylX(0.035, s.track - 0.15, "frame", ax, s.wheelDia / 2, 0, g, 10).rotation.set(Math.PI / 2, 0, 0);
+    for (const ax of [fa, ra]) cylX(0.035, s.track - 0.15, "chassis", ax, s.wheelDia / 2, 0, g, 10).rotation.set(Math.PI / 2, 0, 0);
     if (C.powertrain === "electric") box(0.9, 0.28, 0.7, "vent", (fa + ra) / 2 - 0.2, 0.36, 0, g);
     else box(0.5, 0.3, 0.5, "grille", ra + 0.2, 0.38, 0, g);
     if (s.bed !== false && C.deck) {
       const bx1 = driverX - 0.4, bx0 = Math.max(rear, bx1 - C.deck.length);
-      for (const sz of [-1, 1]) box(bx1 - bx0, 0.12, 0.03, "grille", (bx0 + bx1) / 2, s.frameHeight + 0.04, sz * C.deck.width / 2, g, false);
+      for (const sz of [-1, 1]) box(bx1 - bx0, 0.12, 0.03, "chassis", (bx0 + bx1) / 2, s.frameHeight + 0.04, sz * C.deck.width / 2, g, false);
+      box(0.03, 0.12, C.deck.width, "chassis", bx0 + 0.015, s.frameHeight + 0.04, 0, g, false);
     }
     if (s.rops) {
       const top = C.cab.roofY + x.dh, xb = driverX - 0.35, xf = bumper - 0.35, w = C.cab.width / 2 - 0.04;
       const parts = group("Roll bar");
       g.add(parts);
       for (const sz of [-1, 1]) {
-        rod(new Vec3(xb, cabFloor, sz * w), new Vec3(xb, top, sz * w), 0.025, "frame", parts, false, 8);
-        rod(new Vec3(xf, cabFloor + 0.6, sz * w), new Vec3(xf - 0.25, top, sz * w), 0.025, "frame", parts, false, 8);
-        rod(new Vec3(xb, top, sz * w), new Vec3(xf - 0.25, top, sz * w), 0.025, "frame", parts, false, 8);
+        rod(new Vec3(xb, cabFloor, sz * w), new Vec3(xb, top, sz * w), 0.025, "chassis", parts, false, 8);
+        rod(new Vec3(xf, cabFloor + 0.6, sz * w), new Vec3(xf - 0.25, top, sz * w), 0.025, "chassis", parts, false, 8);
+        rod(new Vec3(xb, top, sz * w), new Vec3(xf - 0.25, top, sz * w), 0.025, "chassis", parts, false, 8);
       }
-      box(xf - 0.25 - xb + 0.1, 0.03, w * 2 + 0.1, "cab", (xb + xf - 0.25) / 2, top + 0.02, 0, parts);
+      rbox(xf - 0.25 - xb + 0.1, 0.03, w * 2 + 0.1, 0.012, "cab", (xb + xf - 0.25) / 2, top + 0.02, 0, parts);
     }
   }
   function buildTruck(g, x) {
     const { s, C, fa, ra, dh, cabFloor, cabRoof, seatY, driverX, driverZ, xbR, hasCab, noPassenger } = x;
     const strip2 = s.strip === "rails" ? "rails" : hasCab ? "stock" : "cut";
-    const cab = C.cab, conv = C.style === "conventional";
+    const cab = C.cab, conv = C.style === "conventional", van = conv && C.family === "cutaway";
     const bumper = fa + C.ba, cb = fa + cab.back, cf = fa + cab.front, cw = cab.width;
     const belt = cabFloor + (conv ? 0.72 : 0.62), low = cabFloor - 0.3;
-    const slant = conv ? 0.28 : 0.12;
-    const railX1 = bumper - 0.2, railX0 = xbR + 0.1, railY = s.frameHeight - 0.13;
-    for (const sz of [-1, 1]) box(railX1 - railX0, 0.26, 0.09, "frame", (railX1 + railX0) / 2, railY, sz * 0.43, g);
+    const slant = conv ? van ? 0.45 : 0.28 : 0.12;
+    const wr = s.wheelDia / 2, wTop = s.wheelDia + 0.03;
+    const frameEnd = ra - C.af + 0.02;
+    const railX1 = bumper - 0.2, railX0 = s.preview ? frameEnd : Math.max(frameEnd, xbR + 0.1), railY = s.frameHeight - 0.13;
+    for (const sz of [-1, 1]) box(railX1 - railX0, 0.26, 0.09, "chassis", (railX1 + railX0) / 2, railY, sz * 0.43, g);
     const nCross = Math.max(2, Math.round((railX1 - railX0) / 0.9));
-    for (let i = 0; i <= nCross; i++) box(0.07, 0.16, 0.77, "frame", railX0 + 0.04 + (railX1 - railX0 - 0.08) * i / nCross, railY, 0, g, false);
-    const wr = s.wheelDia / 2;
-    cylX(0.06, s.track - 0.2, "frame", fa, wr, 0, g, 12).rotation.set(Math.PI / 2, 0, 0);
-    cylX(0.08, s.track - 0.2, "frame", ra, wr, 0, g, 12).rotation.set(Math.PI / 2, 0, 0);
-    const diff = mesh(geo("Sphere", 0.17, 16, 10), "frame", g);
+    for (let i = 0; i <= nCross; i++) box(0.07, 0.16, 0.77, "chassis", railX0 + 0.04 + (railX1 - railX0 - 0.08) * i / nCross, railY, 0, g, false);
+    for (const sz of [-1, 1]) box(0.03, 0.08, 0.16, "tail", railX0 - 0.01, railY - 0.02, sz * 0.62, g, false);
+    box(0.05, 0.05, 1.4, "chassis", railX0 + 0.03, railY - 0.02, 0, g, false);
+    cylX(0.06, s.track - 0.2, "chassis", fa, wr, 0, g, 12).rotation.set(Math.PI / 2, 0, 0);
+    cylX(0.08, s.track - 0.2, "chassis", ra, wr, 0, g, 12).rotation.set(Math.PI / 2, 0, 0);
+    const diff = mesh(geo("Sphere", 0.17, 16, 10), "chassis", g);
     diff.position.set(ra, wr, 0);
-    if (C.axles === 3) cylX(0.08, s.track - 0.2, "frame", ra - 1.3, wr, 0, g, 12).rotation.set(Math.PI / 2, 0, 0);
+    if (C.axles === 3) cylX(0.08, s.track - 0.2, "chassis", ra - 1.3, wr, 0, g, 12).rotation.set(Math.PI / 2, 0, 0);
+    for (const ax of C.axles === 3 ? [fa, ra, ra - 1.3] : [fa, ra]) for (const sz of [-1, 1]) {
+      const a = Math.max(railX0, ax - 0.55), b = Math.min(railX1, ax + 0.55);
+      if (b - a > 0.2) box(b - a, 0.05, 0.08, "chassis", (a + b) / 2, wr + 0.12, sz * 0.43, g, false);
+    }
     const midX = (fa + ra) / 2, under = (y, half) => Math.max(y, half + 0.12);
     if (C.powertrain === "electric") {
       box(Math.min(2.4, (fa - ra) * 0.55), 0.34, 0.74, "vent", midX - 0.2, under(railY - 0.3, 0.17), 0, g);
       for (const sz of [-1, 1]) box(Math.min(1.6, (fa - ra) * 0.4), 0.36, 0.34, "vent", midX - 0.3, under(railY - 0.1, 0.18), sz * 0.66, g);
     } else {
-      const tank = mesh(geo("Cylinder", 0.24, 0.24, 0.8, 20), "grille", g);
+      const tank = mesh(geo("Cylinder", 0.24, 0.24, 0.8, 20), "trim", g);
       tank.rotation.z = Math.PI / 2;
       tank.position.set(midX + 0.2, under(railY - 0.12, 0.24), -0.7);
       const exEnd = Math.max(ra - 0.6, xbR + 0.25), exY = under(railY - 0.25, 0.04), ex0 = new Vec3(fa - 0.6, exY, 0.3), ex1 = new Vec3(midX, exY, 0.62), ex2 = new Vec3(exEnd, exY, 0.62);
@@ -8785,36 +8890,65 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       muff.position.set(midX - 0.4, under(railY - 0.22, 0.12), 0.62);
     }
     if (C.drum) buildDrum(g, x);
-    if (strip2 === "stock") box(0.22, 0.3, cw + 0.05, "grille", bumper - 0.11, conv ? 0.62 + dh : low - 0.12, 0, g);
+    const yBump = conv ? 0.62 + dh : low - 0.12;
+    if (strip2 === "stock") rbox(0.22, 0.3, cw + 0.05, 0.05, conv && !van ? "chrome" : "trim", bumper - 0.11, yBump, 0, g);
     if (strip2 === "stock") {
-      rbox(cf - cb, belt - low, cw, 0.06, "cab", (cb + cf) / 2, (belt + low) / 2, 0, g);
-      const roofX0 = cb, roofX1 = cf - slant;
-      rbox(roofX1 - roofX0, 0.1, cw, 0.04, "cab", (roofX0 + roofX1) / 2, cabRoof - 0.05, 0, g);
-      const wsH = cabRoof - 0.1 - belt, wsLen = Math.hypot(slant, wsH), wsAng = Math.atan2(slant, wsH);
-      const ws = box(0.02, wsLen, cw - 0.12, "glass", cf - slant / 2 - 0.02, belt + wsH / 2, 0, g, false);
-      ws.rotation.z = wsAng;
-      for (const sz of [-1, 1]) {
-        const ap = box(0.07, wsLen, 0.07, "cab", cf - slant / 2 - 0.02, belt + wsH / 2, sz * (cw / 2 - 0.035), g);
-        ap.rotation.z = wsAng;
-        box(0.09, cabRoof - belt, 0.07, "cab", cb + 0.045, (cabRoof + belt) / 2, sz * (cw / 2 - 0.035), g);
-        box(roofX1 - cb - 0.14, cabRoof - 0.12 - belt, 0.02, "glass", (cb + 0.09 + roofX1 - 0.05) / 2, (cabRoof - 0.1 + belt) / 2, sz * (cw / 2 - 0.01), g, false);
-        const dx0 = Math.max(cb + 0.15, cf - (conv ? 1.05 : 0.95)), dx1 = cf - (conv ? 0.08 : 0.05);
-        for (const xx of [dx0, dx1]) box(0.012, belt - low - 0.08, 4e-3, "grille", xx, (belt + low) / 2, sz * (cw / 2 + 2e-3), g, false);
-        box(0.12, 0.03, 0.02, "rim", dx0 + 0.12, belt - 0.12, sz * (cw / 2 + 0.01), g, false);
-        const mz = sz * (cw / 2 + 0.2);
-        rod(new Vec3(cf - 0.12, belt + 0.05, sz * (cw / 2)), new Vec3(cf - 0.12, belt + 0.12, mz), 0.012, "grille", g, false, 6).userData.noBox = true;
-        box(0.06, 0.32, 0.2, "grille", cf - 0.12, belt + 0.22, mz, g).userData.noBox = true;
+      const yb = conv ? low : Math.max(low, wTop);
+      const wheelRear = fa - wr - 0.06, tuck = conv && cf > wheelRear;
+      const pts = [
+        [cb, yb],
+        ...tuck ? [[Math.max(cb + 0.3, wheelRear), yb], [cf, Math.min(belt - 0.1, Math.max(yb, wTop))]] : [[cf - 0.04, yb], [cf, yb + 0.06]],
+        [cf, belt],
+        [cf - slant, cabRoof - 0.03],
+        [cf - slant - 0.06, cabRoof],
+        [cb + 0.04, cabRoof],
+        [cb, cabRoof - 0.04]
+      ];
+      profile(pts, cw, 0.07, "cab", 0, g);
+      if (!conv) {
+        const skirt = (xa, xb) => {
+          if (xb - xa > 0.08) rbox(xb - xa, yb - low + 0.02, cw - 0.04, 0.03, "cab", (xa + xb) / 2, (yb + low) / 2, 0, g);
+        };
+        skirt(fa + wr + 0.07, cf - 0.01);
+        skirt(cb, fa - wr - 0.07);
+        for (const sz of [-1, 1]) {
+          archLip(fa, wr, sz * (cw / 2 - 0.02), "trim", g);
+          box(0.3, 0.04, 0.22, "trim", fa - wr - 0.25, low + 0.18, sz * (cw / 2 - 0.08), g, false);
+        }
       }
-      box(0.02, cabRoof - 0.18 - belt, cw - 0.2, "glass", cb + 0.01, (cabRoof - 0.12 + belt) / 2, 0, g, false);
+      const wsH = cabRoof - 0.06 - belt, wsLen = Math.hypot(slant, wsH), wsAng = Math.atan2(slant, wsH), nx = wsH / wsLen, ny = slant / wsLen;
+      const ws = box(0.012, wsLen - 0.1, cw - 0.2, "tint", cf - slant / 2 + nx * 8e-3, belt + wsH / 2 + ny * 8e-3, 0, g, false);
+      ws.rotation.z = wsAng;
+      const xe = (y) => cf - slant * (y - belt) / wsH;
+      const gy0 = belt + 0.05, gy1 = cabRoof - 0.12, gx0 = cb + (conv && !van ? 0.14 : 0.18);
+      for (const sz of [-1, 1]) {
+        profile([[gx0, gy0], [xe(gy0) - 0.1, gy0], [xe(gy1) - 0.1, gy1], [gx0, gy1]], 0.01, 3e-3, "tint", sz * (cw / 2 + 2e-3), g, false);
+        const dx0 = Math.max(cb + 0.15, cf - (conv ? 1.05 : 0.95)), dx1 = cf - (conv ? 0.08 : 0.05);
+        for (const xx of [dx0, dx1]) box(0.012, belt - yb - 0.08, 4e-3, "grille", xx, (belt + yb) / 2, sz * (cw / 2 + 2e-3), g, false);
+        box(0.12, 0.03, 0.02, "chrome", dx0 + 0.12, belt - 0.12, sz * (cw / 2 + 0.01), g, false);
+        const mz = sz * (cw / 2 + 0.2);
+        rod(new Vec3(cf - 0.12, belt + 0.05, sz * (cw / 2)), new Vec3(cf - 0.12, belt + 0.12, mz), 0.012, "trim", g, false, 6).userData.noBox = true;
+        rbox(0.06, 0.32, 0.2, 0.02, "trim", cf - 0.12, belt + 0.22, mz, g).userData.noBox = true;
+        box(0.025, 0.045, 0.08, "amber", cf - 0.03, belt - 0.05, sz * (cw / 2 - 0.02), g, false);
+      }
+      if (!van) box(0.012, cabRoof - 0.26 - belt, cw - 0.5, "tint", cb - 4e-3, (cabRoof - 0.14 + belt) / 2 + 0.02, 0, g, false);
       box(0.34, 0.38, cw - 0.16, "leather", cf - (conv ? 0.36 : 0.3), belt - 0.12, 0, g);
+      if (!conv) {
+        rbox(0.03, (belt - low) * 0.45, cw - 0.7, 0.01, "grille", cf + 6e-3, low + (belt - low) * 0.42, 0, g);
+        box(0.02, 0.05, cw - 0.4, "chrome", cf + 0.012, belt - 0.12, 0, g, false);
+        for (const sz of [-1, 1]) {
+          rbox(0.03, 0.14, 0.32, 0.02, "head", cf + 8e-3, low + 0.17, sz * (cw / 2 - 0.3), g);
+          box(0.02, 0.06, 0.12, "amber", cf + 6e-3, low + 0.17, sz * (cw / 2 - 0.08), g, false);
+        }
+      }
     } else if (strip2 === "cut") {
       if (conv) {
         box(0.1, cab.hoodTop + dh + 0.06 - cabFloor, cw - 0.2, "cab", cf + 0.05, (cab.hoodTop + dh + 0.06 + cabFloor) / 2, 0, g);
         if (C.doghouse) rbox(0.7, 0.36, 0.5, 0.08, "cab", cf - 0.4, cabFloor + 0.18, 0.02, g);
       } else {
         const top = cabFloor + 0.42;
-        box(0.08, top - low, cw - 0.1, "cab", cf - 0.04, (top + low) / 2, 0, g);
-        for (const sz of [-1, 1]) box(0.03, 0.12, 0.3, "head", cf + 0.01, low + 0.15, sz * (cw / 2 - 0.3), g, false);
+        rbox(0.08, top - low, cw - 0.1, 0.02, "cab", cf - 0.04, (top + low) / 2, 0, g);
+        for (const sz of [-1, 1]) rbox(0.03, 0.12, 0.3, 0.02, "head", cf + 0.01, low + 0.15, sz * (cw / 2 - 0.3), g);
         rbox(0.8, 0.42, 0.5, 0.08, "cab", cf - 0.95, cabFloor + 0.21, 0.05, g);
       }
       const dx = conv ? cf - 0.2 : cf - 0.32;
@@ -8822,12 +8956,13 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       box(0.36, 0.24, cw - 0.28, "leather", dx, dy, 0, g);
       box(0.2, Math.max(0.1, dy - 0.12 - cabFloor), cw - 0.5, "leather", dx + 0.06, (dy - 0.12 + cabFloor) / 2, 0, g);
       rbox(0.14, 0.12, 0.36, 0.04, "grille", dx - 0.12, dy + 0.1, driverZ, g);
+      box(Math.max(0.3, (conv ? cf : cf - 0.1) - (cb + 0.1)), 0.03, cw - 0.12, "trim", ((conv ? cf : cf - 0.1) + cb + 0.1) / 2, cabFloor - 0.015, 0, g);
     } else {
       const ex = conv ? fa + 0.15 : fa - 0.1, eTop = conv ? (cab.hoodTop || 1.3) + dh - 0.12 : cabFloor + 0.4;
       box(0.9, eTop - railY, 0.62, "grille", ex, (eTop + railY) / 2, 0, g);
       box(0.08, eTop - railY + 0.1, 0.75, "vent", bumper - 0.3, (eTop + railY) / 2 + 0.05, 0, g);
       for (const sz of [-1, 1]) box(0.04, 0.12, 0.26, "head", bumper - 0.27, railY + 0.25, sz * 0.55, g, false);
-      box(Math.max(0.6, driverX + 0.6 - (cb - 0.1)), 0.04, cw - 0.2, "frame", (driverX + 0.6 + cb - 0.1) / 2, cabFloor - 0.02, 0, g);
+      box(Math.max(0.6, driverX + 0.6 - (cb - 0.1)), 0.04, cw - 0.2, "chassis", (driverX + 0.6 + cb - 0.1) / 2, cabFloor - 0.02, 0, g);
       box(0.25, 0.5, 0.25, "leather", driverX + 0.55, cabFloor + 0.25, driverZ, g);
     }
     for (const sz of [-1, 1]) {
@@ -8836,20 +8971,25 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       rbox(0.5, 0.14, 0.52, 0.05, "leather", driverX, seatY - 0.07, z, g);
       const b = rbox(0.12, 0.72, 0.5, 0.05, "leather", driverX - 0.28, seatY + 0.32, z, g);
       b.rotation.z = 0.14;
-      if (strip2 !== "stock") box(0.34, seatY - 0.14 - cabFloor, 0.34, "frame", driverX, (seatY - 0.14 + cabFloor) / 2, z, g);
+      if (strip2 !== "stock") box(0.34, seatY - 0.14 - cabFloor, 0.34, "chassis", driverX, (seatY - 0.14 + cabFloor) / 2, z, g);
     }
     if (conv && strip2 !== "rails") {
-      const hx1 = bumper - 0.18, hLen = hx1 - cf, hTop = cab.hoodTop + dh, hBot = 0.78 * (s.wheelDia / 0.8) + dh * 0.5;
-      rbox(hLen, hTop - hBot, cab.hoodW, 0.1, "cab", (hx1 + cf) / 2, (hTop + hBot) / 2, 0, g);
-      box(0.04, (hTop - hBot) * 0.8, cab.hoodW - 0.18, "grille", hx1 + 0.01, hBot + (hTop - hBot) * 0.45, 0, g);
+      const hx1 = bumper - 0.18, hTop = cab.hoodTop + dh, hBot = 0.78 * (s.wheelDia / 0.8) + dh * 0.5;
+      const fTop = van ? hBot + (hTop - hBot) * 0.55 : hTop - 0.03;
+      profile([[cf, hBot], [hx1, hBot], [hx1, fTop - 0.05], [hx1 - (van ? 0.14 : 0.1), fTop], [cf, hTop]], cab.hoodW, van ? 0.09 : 0.05, "cab", 0, g);
+      const gH = (fTop - hBot) * (van ? 0.5 : 0.62), gY = hBot + (fTop - hBot) * (van ? 0.42 : 0.5);
+      rbox(0.04, gH + 0.06, cab.hoodW - (van ? 0.5 : 0.3), 0.02, van ? "trim" : "chrome", hx1 + 6e-3, gY, 0, g);
+      box(0.04, gH, cab.hoodW - (van ? 0.58 : 0.38), "grille", hx1 + 0.012, gY, 0, g);
       for (const sz of [-1, 1]) {
-        box(0.04, 0.12, 0.26, "head", hx1 + 0.02, hBot + (hTop - hBot) * 0.62, sz * (cab.hoodW / 2 - 0.2), g, false);
-        const fw = Math.max(0.12, (cw - cab.hoodW) / 2);
-        rbox(1.1, 0.22, fw, 0.05, "cab", fa, s.wheelDia + 0.08, sz * (cab.hoodW / 2 + fw / 2), g);
+        rbox(0.04, van ? 0.14 : 0.2, van ? 0.24 : 0.2, 0.02, "head", hx1 + 0.01, van ? gY + 0.02 : gY + 0.02, sz * (cab.hoodW / 2 - (van ? 0.16 : 0.1)), g);
+        box(0.02, 0.05, 0.12, "amber", hx1 + 8e-3, hBot + 0.06, sz * (cab.hoodW / 2 - 0.12), g, false);
+        const fw = Math.max(0.12, (cw - cab.hoodW) / 2), zf = sz * (cab.hoodW / 2 + fw / 2);
+        const fx0 = Math.max(cf, fa - wr - 0.3), fx1 = hx1 - 0.02, fy1 = Math.max(wTop + 0.12, van ? fTop : hBot + (hTop - hBot) * 0.55);
+        profile([[fx0, wTop], [fx1, wTop], [fx1, fy1 - 0.05], [fx1 - 0.1, fy1], [fx0, fy1]], fw, 0.04, "cab", zf, g);
+        if (fx1 - (fa + wr + 0.07) > 0.08) rbox(fx1 - (fa + wr + 0.07), wTop - yBump + 0.02, fw, 0.02, "cab", (fx1 + fa + wr + 0.07) / 2, (wTop + yBump) / 2, zf, g);
+        if (fa - wr - 0.07 - cf > 0.08) rbox(fa - wr - 0.07 - cf, wTop - low + 0.02, fw, 0.02, "cab", (fa - wr - 0.07 + cf) / 2, (wTop + low) / 2, zf, g);
+        archLip(fa, wr, sz * (cw / 2 - 0.03), van ? "cab" : "trim", g);
       }
-    } else if (!conv && strip2 === "stock") {
-      box(0.03, belt - low - 0.1, cw - 0.3, "grille", cf + 5e-3, (belt + low) / 2 - 0.05, 0, g);
-      for (const sz of [-1, 1]) box(0.03, 0.12, 0.3, "head", cf + 0.01, low + 0.15, sz * (cw / 2 - 0.3), g, false);
     }
   }
   function buildDrum(g, x) {
@@ -8866,7 +9006,11 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     const cone = mesh(geo("Cylinder", d.dia * 0.2, d.dia * 0.42, d.length * 0.4, 28), "rim", dg);
     cone.rotation.z = Math.PI / 2;
     cone.position.x = -d.length * 0.55;
-    box(0.4, 0.5, 0.5, "grille", x1 - 0.2, s.frameHeight + 0.5, 0, g);
+    const t = d.tilt * Math.PI / 180, xc = (x0 + x1) / 2;
+    for (const [u2, r] of [[d.length * 0.2, d.dia * 0.49], [-d.length * 0.45, d.dia * 0.365]]) {
+      const sx = xc + u2 * Math.cos(t) - r * Math.sin(t), top = yc - u2 * Math.sin(t) - r * Math.cos(t);
+      if (top - s.frameHeight > 0.05) box(0.25, top - s.frameHeight + 0.06, 0.9, "chassis", sx, (top + s.frameHeight) / 2, 0, g);
+    }
   }
   function drumFootprint(C, fa) {
     if (!C.drum) return null;
@@ -9405,7 +9549,8 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     const subY0 = s.frameHeight - 0.02, subY1 = deckY - slabT;
     if (subY1 - subY0 > 0.03) {
       const sl = Math.max(0.2, xfs - xbR - 0.3), sw2 = Math.max(0.4, Math.min(floorW - 0.2, s.track - 0.3)), sx = (xbR + xfs) / 2, sy = (subY0 + subY1) / 2, sh = subY1 - subY0;
-      for (const sz of [-1, 1]) F(box(sl, sh, 0.1, "frame", sx, sy, sz * (sw2 / 2 - 0.05), deckG));
+      const railZ = isCart ? Math.min(sw2 / 2 - 0.05, 0.3) : 0.43;
+      for (const sz of [-1, 1]) F(box(sl, sh, 0.1, "frame", sx, sy, sz * railZ, deckG));
       const n = Math.max(1, Math.round(sl / 0.9));
       for (let k = 0; k <= n; k++) F(box(0.08, sh, sw2 - 0.2, "frame", sx - sl / 2 + 0.04 + (sl - 0.08) * k / n, sy, 0, deckG));
       bom.deckFrame += 2 * sl + (n + 1) * sw2;
@@ -9439,14 +9584,30 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       pivot.add(spin);
       const offs = C.dual && !front ? [-0.16, 0.16] : [0];
       for (const o of offs) {
-        const tire = mesh(geo("Cylinder", wr, wr, tireW, 36), "rubber", spin);
-        tire.rotation.x = Math.PI / 2;
+        const hw = tireW / 2, sh = Math.min(0.05, hw * 0.4), ri = wr * 0.62;
+        const tire = mesh(latheZ([[ri, -hw], [wr - sh, -hw], [wr - sh * 0.3, -hw + sh * 0.3], [wr, -hw + sh], [wr, hw - sh], [wr - sh * 0.3, hw - sh * 0.3], [wr - sh, hw], [ri, hw]], 40), "rubber", spin);
         tire.position.z = o;
-        const rim = mesh(geo("Cylinder", wr * 0.58, wr * 0.58, tireW + 0.012, 24), "rim", spin);
-        rim.rotation.x = Math.PI / 2;
-        rim.position.z = o;
-        box(wr * 1.02, 0.06, tireW + 0.018, "frame", 0, 0, o, spin);
-        box(0.06, wr * 1.02, tireW + 0.018, "frame", 0, 0, o, spin);
+        const face = sz * (hw - 0.012);
+        const wheel = mesh(geo("Cylinder", ri, ri, tireW - 0.03, 28, 1, true), "rim", spin);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.z = o;
+        const disc = mesh(geo("Cylinder", ri * 0.98, ri * 0.98, 0.016, 28), "rim", spin);
+        disc.rotation.x = Math.PI / 2;
+        disc.position.z = o + face - sz * 0.02;
+        const hub = mesh(geo("Cylinder", ri * 0.36, ri * 0.42, 0.05, 20), "chassis", spin);
+        hub.rotation.x = Math.PI / 2;
+        hub.position.z = o + face - sz * 0.01;
+        const nLug = isCart ? 4 : 8;
+        for (let k = 0; k < nLug; k++) {
+          const a = k / nLug * TAU3, lug = mesh(geo("Cylinder", 0.014, 0.014, 0.03, 6), "chrome", spin, false);
+          lug.rotation.x = Math.PI / 2;
+          lug.position.set(Math.cos(a) * ri * 0.55, Math.sin(a) * ri * 0.55, o + face - sz * 5e-3);
+        }
+        for (let k = 0; k < 5; k++) {
+          const a = (k + 0.5) / 5 * TAU3, hole = mesh(geo("Cylinder", ri * 0.13, ri * 0.13, 0.02, 12), "trim", spin, false);
+          hole.rotation.x = Math.PI / 2;
+          hole.position.set(Math.cos(a) * ri * 0.78, Math.sin(a) * ri * 0.78, o + face - sz * 0.018);
+        }
       }
       vehG.add(pivot);
       wheels.push({ pivot, spin, front });
@@ -10407,13 +10568,17 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     const perStep = Object.fromEntries(Object.entries(steps).map(([k, [c, e]]) => [k, { cost: stepTier(c), effort: stepTier(e), points: [c, e] }]));
     return { cost: bandOf(cost, "cost"), effort: bandOf(effort, "effort"), points: [cost, effort], perStep, lines };
   }
-  function missingSkills(d, s) {
-    const need = [];
+  var SKILL_LABEL = { welding: "Welding", cnc: "CNC cutting", woodworking: "Woodworking", electrical: "Electrical", mechanical: "Mechanical" };
+  function requiredSkills(d, s) {
+    const need = /* @__PURE__ */ new Map();
     const want = (skill, what) => {
-      if (!d.brief.skills.includes(skill)) need.push({ skill, what });
+      if (!need.has(skill)) need.set(skill, []);
+      if (!need.get(skill).includes(what)) need.get(skill).push(what);
     };
+    if (d.strip.level !== "stock" && s.strip !== "cart") want("mechanical", d.strip.level === "rails" ? "stripping to the frame and moving the driver\u2019s controls" : "cutting the cab at the windshield base");
     want("welding", "the steel structure");
     if (d.structure.material === "alu") want("welding", "aluminum secondary members (TIG)");
+    if (d.upper.kind !== "none" || d.layout.seating !== "platform") want("woodworking", d.upper.kind !== "none" ? "decking, seating and the rear section" : "seating and the rear section");
     want("electrical", "lights, sound and power");
     for (const k of s.kits || []) {
       const skills = new Set(k.def.skills || []);
@@ -10422,13 +10587,8 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       if (m) m.skills.forEach((x) => skills.add(x));
       for (const sk of skills) want(sk, k.def.name.toLowerCase());
     }
-    const seen = /* @__PURE__ */ new Set();
-    return need.filter((n) => {
-      const key = n.skill + n.what;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    const order = ["mechanical", "welding", "woodworking", "cnc", "electrical"];
+    return [...need.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])).map(([skill, what]) => ({ skill, label: SKILL_LABEL[skill] || skill, what }));
   }
 
   // studio/engine/teardown.js
@@ -10603,14 +10763,13 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   }
   function collectFlags(E, d) {
     const u2 = d.view.units, L2 = (m) => fmtLen(m, u2);
-    const { s, C, g, power, missing, tr, rc } = E;
+    const { s, C, g, power, tr, rc } = E;
     const f = [];
     const flag2 = (id, step, severity, title, detail) => f.push({ id, step, severity, title, detail });
     for (const vf of C.flags || []) flag2(vf.id, 1, vf.severity, vf.title, vf.detail);
     if (d.brief.powertrain !== "either" && C.powertrain !== d.brief.powertrain && !(d.brief.powertrain === "gas" && C.powertrain === "diesel"))
       flag2("powertrain", 1, "amber", "Powertrain doesn\u2019t match the brief", `The brief asks for ${d.brief.powertrain}; the ${C.short} is ${C.powertrain}.`);
-    if (d.brief.age === "used" && C.buying && C.buying.newAvailable && /^none|^few|^rare/i.test(C.buying.used || "")) flag2("used-market", 1, "amber", "Hard to find used", `${C.buying.used}.`);
-    if (d.brief.age === "new" && C.buying && !C.buying.newAvailable) flag2("new-market", 1, "amber", "Not sold new", "The brief asks for a new chassis; this one isn\u2019t sold new.");
+    if (C.buying && C.buying.newAvailable && /^none|^few|^rare/i.test(C.buying.used || "")) flag2("used-market", 1, "amber", "Hard to find used", `${C.buying.used}.`);
     if (C.style === "cart" && !s.rops) flag2("rops", 2, g.barge ? "red" : "amber", "No factory roll bar", g.barge ? "The low barge has no posts, so nothing protects the driver in a rollover. Keep the factory roll bar or add posts." : "With the factory canopy gone, the posts right behind the driver must be built and braced as a roll bar.");
     if (s.strip === "rails" && !(s.kits || []).some((k) => k.def.covers?.includes("front") || k.id === "hood-cover"))
       flag2("engine-cover", 6, "amber", "The engine needs a cover", "Stripped to the frame rails, the engine and radiator are open. Add a front kit; keep the radiator\u2019s airflow and the headlights clear.");
@@ -10622,7 +10781,6 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     if (g.deckFrontCapped) flag2("deck-cap", 4, "info", "Deck stops short of the front", "Without posts ahead of the driver, the deck can only reach about 1.6\u2032 past the last post. The rest stays shade.");
     if (power.status !== "ok") flag2("power", 7, power.status, "Power won\u2019t last the night", `The bank runs about ${Number.isFinite(power.hours) ? power.hours.toFixed(1) : "\u221E"} h at this load; a night is ${power.need} h. About ${power.recommendKwh} kWh would do it${s.power === "generator" ? "" : ", or add the generator"}.`);
     for (const p of power.bayProblems) flag2("bay", 3, "amber", "Power bay too small", `${p[0].toUpperCase()}${p.slice(1)}.`);
-    for (const m of missing) flag2("skill-" + m.skill, m.what.includes("structure") ? 3 : m.what.includes("lights") ? 7 : 6, "amber", `Needs ${m.skill === "cnc" ? "CNC" : m.skill}`, `${m.what[0].toUpperCase()}${m.what.slice(1)} needs ${m.skill === "cnc" ? "CNC cutting" : m.skill}, which the brief doesn\u2019t list.`);
     for (const k of s.kits || []) {
       if (MATERIALS[k.p.material]?.warning) flag2("fabric-day", 6, "amber", "Fabric looks bad by day", `${k.def.name}: ${MATERIALS[k.p.material].warning}`);
       if (k.def.expects?.axles && C.axles < k.def.expects.axles) flag2("axles", 6, "amber", "Wrong axle count", `${k.def.name}: ${k.def.expects.why}`);
@@ -10647,8 +10805,22 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     { id: "transport", title: "Transport", q: "How does it get to the playa?" }
   ];
   var RANK = { ok: 0, info: 0, na: 0, amber: 1, red: 2 };
+  function blankEvaluation(d) {
+    return {
+      d,
+      blank: true,
+      score: [],
+      flags: [],
+      red: [],
+      flagIds: /* @__PURE__ */ new Set(),
+      skills: [],
+      tiers: { cost: 0, effort: 0, points: [0, 0], perStep: {}, lines: [] },
+      steps: STEPS.map((st) => ({ ...st, status: "ok", items: [] }))
+    };
+  }
   function evaluate(design2, opts = {}) {
     const d = opts.trusted ? design2 : sanitize(design2);
+    if (!d.vehicle.id) return blankEvaluation(d);
     const s = params(d), C = vehicleOf(d.vehicle.id);
     const model = buildCar(s, C), g = model.geom;
     const w = buildWeights(g, s, C);
@@ -10660,10 +10832,10 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     const view = opts.viewCone === false ? null : viewCone(model.root, g);
     const power = powerBudget(model.root, g, s);
     const tiers = tierTotals(d, s, C, g);
-    const missing = missingSkills(d, s);
+    const skills = requiredSkills(d, s);
     const teardown = teardownPlan(g, s, w);
     const limits = bodyLimits(s, C);
-    const E = { d, s, C, model, g, w, rc, tip, dims, tr, dmv, view, power, tiers, missing, teardown, limits };
+    const E = { d, s, C, model, g, w, rc, tip, dims, tr, dmv, view, power, tiers, skills, teardown, limits };
     E.score = scorecard(E, d);
     E.flags = collectFlags(E, d);
     E.steps = STEPS.map((st, i) => {
@@ -10700,16 +10872,23 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     chill: { "layout.seating": "platform", "layout.standing": "none", "layout.curtains": "all" }
   };
   function loadInitial() {
+    return blankDesign();
+  }
+  function savedDesign() {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) return sanitize(JSON.parse(raw));
+      if (raw) {
+        const d = sanitize(JSON.parse(raw));
+        if (d.vehicle.id) return d;
+      }
     } catch (e) {
     }
-    return starterDesign("express");
+    return null;
   }
   var persistTimer;
   function persist() {
     clearTimeout(persistTimer);
+    if (!store.d.vehicle.id) return;
     persistTimer = setTimeout(() => {
       try {
         localStorage.setItem(KEY, JSON.stringify(store.d));
@@ -10718,14 +10897,20 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     }, 300);
   }
   var evalQueued = false;
+  var wantFull = false;
   function scheduleEval(full = true) {
+    wantFull = wantFull || full;
     if (evalQueued) return;
     evalQueued = true;
-    requestAnimationFrame(() => {
+    const run = () => {
+      const vc = wantFull;
       evalQueued = false;
-      store.E = evaluate(store.d, { trusted: true, viewCone: full });
+      wantFull = false;
+      store.E = evaluate(store.d, { trusted: true, viewCone: vc });
       listeners.forEach((fn) => fn("eval"));
-    });
+    };
+    if (full) setTimeout(run, 0);
+    else requestAnimationFrame(run);
   }
   function setDesign(d, { keepUndo = false, silent = false } = {}) {
     if (store.d && !keepUndo) pushUndo();
@@ -10752,9 +10937,11 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     const notes = [];
     store.lastChanges = path === "vehicle.id" ? [] : store.lastChanges;
     if (path === "vehicle.id") {
+      const fromBlank = !d.vehicle.id;
       const { design: design2, changes } = switchVehicle(d, value);
       store.lastChanges = changes;
-      store.d = design2;
+      if (fromBlank) for (const v of design2.brief.vibes) for (const [p, x] of Object.entries(VIBES[v] || {})) setPath(design2, p, x);
+      store.d = fromBlank ? sanitize(design2) : design2;
     } else if (path.startsWith("kits.")) {
       const [, slot, ...rest] = path.split(".");
       if (!rest.length) d.kits[slot] = { id: value, p: value === "none" ? {} : kitDefaults(value) };
@@ -10904,6 +11091,25 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   var notify = (notes) => {
     if (notes && notes.length) window.__toast?.(`Pre-selected: ${notes.join("; ")}`);
   };
+  var dragTimer;
+  function startDrag() {
+    store.dragging = true;
+    clearTimeout(dragTimer);
+    dragTimer = setTimeout(endDrag, 1500);
+  }
+  function endDrag() {
+    clearTimeout(dragTimer);
+    if (store.dragging) {
+      store.dragging = false;
+      setTimeout(() => window.__studio?.app?.rerender(), 0);
+    }
+  }
+  if (typeof window !== "undefined") ["pointerup", "pointercancel", "keyup"].forEach((ev) => window.addEventListener(ev, () => {
+    if (store.dragging) setTimeout(endDrag, 0);
+  }, true));
+  function pressNow(btn) {
+    btn.parentElement?.querySelectorAll("[aria-pressed]").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+  }
   function range(path, o = {}) {
     const f = { ...FIELDS[path], ...o };
     const id = "f" + ++uid;
@@ -10916,17 +11122,20 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       out.textContent = (o.outFn ? o.outFn(x) : fmtField(f, x, units())) + (atMax ? ", chassis max" : "");
     };
     show(v);
-    input.addEventListener("input", () => {
+    const commit = (live) => {
       const x = parseFloat(input.value);
-      show(x);
-      store.dragging = true;
-      (o.set || ((x2, live) => setValue(path, x2, { live })))(f.type === "int" ? Math.round(x) : x, true);
+      (o.set || ((x2, l) => setValue(path, x2, { live: l })))(f.type === "int" ? Math.round(x) : x, live);
+    };
+    input.addEventListener("input", () => {
+      show(parseFloat(input.value));
+      startDrag();
+      commit(true);
     });
     input.addEventListener("change", () => {
-      store.dragging = false;
-      const x = parseFloat(input.value);
-      (o.set || ((x2, live) => setValue(path, x2, { live })))(f.type === "int" ? Math.round(x) : x, false);
+      endDrag();
+      commit(false);
     });
+    input.addEventListener("blur", endDrag);
     return h("div", { class: "row" + (o.disabled ? " disabled" : "") }, h("div", { class: "row-head" }, h("label", { for: id }, o.label || f.label), out), input, o.note ? h("div", { class: "note" }, o.note) : null, o.why ? h("div", { class: "why" }, o.why) : null);
   }
   function toggle(path, o = {}) {
@@ -10941,7 +11150,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     const f = { ...FIELDS[path], ...o };
     const options = o.options || f.options;
     const v = o.value ?? getPath(store.d, path);
-    const status = (val) => o.status ? o.status(val) : store.E ? optionStatus(store.E, path, val) : { disabled: false };
+    const status = (val) => o.status ? o.status(val) : store.E && !store.E.blank ? optionStatus(store.E, path, val) : { disabled: false };
     const set = (val) => notify(o.set ? o.set(val) : setValue(path, val));
     const head = h("div", { class: "row-head" }, h("span", { class: "l" }, o.label || f.label));
     const sts = options.map(([val]) => status(val));
@@ -10951,7 +11160,10 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
         const st = sts[i];
         return h(
           "button",
-          { type: "button", class: "ocard", "aria-pressed": String(val === v), disabled: st.disabled, title: st.reason || "", onclick: () => set(val) },
+          { type: "button", class: "ocard", "aria-pressed": String(val === v), disabled: st.disabled, title: st.reason || "", onclick: (e) => {
+            pressNow(e.currentTarget);
+            set(val);
+          } },
           h("div", { class: "t" }, h("span", {}, lab), meta && meta.right ? h("span", { class: "tag" }, meta.right) : null),
           desc ? h("div", { class: "d" }, desc) : null,
           st.reason ? h("div", { class: "why" }, (st.disabled ? "" : "Current choice: ") + st.reason) : null,
@@ -10961,7 +11173,10 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       return h("div", { class: "row" }, head, cards, o.note ? h("div", { class: "note" }, o.note) : null);
     }
     if (o.seg || options.length <= 4 && !o.select) {
-      const seg2 = h("div", { class: "seg wide", role: "group" }, options.map(([val, lab], i) => h("button", { type: "button", "aria-pressed": String(val === v), disabled: sts[i].disabled, title: sts[i].reason || "", onclick: () => set(val) }, lab)));
+      const seg2 = h("div", { class: "seg wide", role: "group" }, options.map(([val, lab], i) => h("button", { type: "button", "aria-pressed": String(val === v), disabled: sts[i].disabled, title: sts[i].reason || "", onclick: (e) => {
+        pressNow(e.currentTarget);
+        set(val);
+      } }, lab)));
       const whys = options.map(([, lab], i) => sts[i].disabled ? `${lab}: ${sts[i].reason}` : null).filter(Boolean);
       return h("div", { class: "row" }, head, seg2, whys.length ? h("div", { class: "why" }, whys.join(". ") + ".") : null, curWhy ? h("div", { class: "why" }, curWhy) : null, o.note ? h("div", { class: "note" }, o.note) : null);
     }
@@ -10983,7 +11198,12 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
         type: "button",
         class: "chip",
         "aria-pressed": String(v.includes(val)),
-        onclick: () => notify(setValue(path, v.includes(val) ? v.filter((x) => x !== val) : [...v, val]))
+        onclick: (e) => {
+          const b = e.currentTarget;
+          b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
+          const cur = getPath(store.d, path) || [];
+          notify(setValue(path, cur.includes(val) ? cur.filter((x) => x !== val) : [...cur, val]));
+        }
       }, lab))),
       o.note ? h("div", { class: "note" }, o.note) : null
     );
@@ -11037,116 +11257,148 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   function powertrainOk(C, pref) {
     return pref === "either" || (pref === "electric" ? C.powertrain === "electric" : C.powertrain !== "electric");
   }
-  function brief() {
-    const b = store.d.brief;
+  function brief(app2) {
+    const b = store.d.brief, E = store.E;
+    const skills = E.blank ? null : E.skills;
     return [
+      E.blank ? box2(
+        "",
+        h("strong", {}, "Nothing is built yet."),
+        h("div", { class: "note" }, "Set what you want here, then pick a vehicle in step 1. The 3D view shows only what each step adds: the stock vehicle first, then the structure, the upper deck, the layout, the design and the lights."),
+        app2.saved ? h("div", { class: "chips" }, h("button", { type: "button", class: "btn small", onclick: () => app2.resume() }, `Resume \u201C${app2.saved.name}\u201D`)) : null
+      ) : null,
       h("p", { class: "note" }, "The brief only sets targets. The scorecard compares the design against them."),
       range("brief.ridersMin", { outFn: (x) => `${Math.round(x)}` }),
       range("brief.ridersMax", { outFn: (x) => `${Math.round(x)}` }),
       choice("brief.budget", { status: () => ({}) }),
       choice("brief.effort", { status: () => ({}) }),
       choice("brief.powertrain", { status: () => ({}), note: "Vehicles that don\u2019t match are hidden in the vehicle step." }),
-      choice("brief.age", { status: () => ({}) }),
       choice("brief.transport", { status: () => ({}) }),
       chips("brief.vibes", { note: "Picking a vibe pre-selects matching layout options in step 5." }),
-      chips("brief.skills", { note: "Kits that need a skill the crew doesn\u2019t list get an amber note." }),
       box2(
         "",
         h("strong", {}, `Targets: ${b.ridersMin === b.ridersMax ? b.ridersMax : `${b.ridersMin}\u2013${b.ridersMax}`} riders, ${TIER_COST[b.budget]}, ${TIER_EFFORT[b.effort]} effort.`),
         h("div", { class: "note" }, "Cost and effort are relative tiers only, never dollars or hours.")
+      ),
+      box2(
+        "",
+        h("strong", {}, "Crew skills this build needs"),
+        skills ? stats(skills.map((k) => [k.label, k.what.join("; ")])) : h("div", { class: "note" }, "An output, not an input: it lists what your choices call for once a vehicle is picked.")
       )
     ];
   }
   function vehicle(app2) {
-    const d = store.d, E = store.E, C = E.C, pref = d.brief.powertrain;
-    const fam = app2.ui.family || C.family;
+    const d = store.d, E = store.E, blank = !!E.blank, C = blank ? null : E.C, pref = d.brief.powertrain;
+    const fam = app2.ui.family || (C ? C.family : "cutaway");
     const inFam = VEHICLE_IDS.map((id) => VEHICLES[id]).filter((v) => v.family === fam);
-    const shown = inFam.filter((v) => powertrainOk(v, pref) || v.id === C.id);
+    const shown = inFam.filter((v) => powertrainOk(v, pref) || C && v.id === C.id);
     const hidden = inFam.length - shown.length;
-    const famSeg = h("div", { class: "seg wide", role: "group", "aria-label": "Vehicle family" }, FAMILIES.map((f) => h("button", { type: "button", "aria-pressed": String(f.id === fam), onclick: () => {
+    const pick2 = (v) => {
+      if (C && v.id === C.id) return;
+      setValue("vehicle.id", v.id);
+      app2.afterVehicleSwitch(blank);
+    };
+    const fitTags = (v, fit) => {
+      const tags = [{ text: v.powertrain }, { text: `${W(v.payloadLb / 2.20462)} payload`, cls: v.confidence.payloadLb || "estimate" }];
+      if (fit) tags.push({ text: `about ${fit.riders} riders`, cls: fit.riders >= d.brief.ridersMin ? "ok" : "amber" }, { text: `upper deck: ${fit.deck}`, cls: fit.deck === "yes" ? "ok" : fit.deck === "no" ? "red" : "amber" });
+      if (!powertrainOk(v, pref)) tags.push({ text: "doesn\u2019t match the brief", cls: "amber" });
+      return tags;
+    };
+    const tagRow = (tags) => h("div", { class: "meta" }, tags.map((t) => h("span", { class: "tag " + (t.cls || "") }, t.text)));
+    let yours;
+    if (blank) yours = [box2("", h("strong", {}, "Pick a vehicle to build on."), h("div", { class: "note" }, "The 3D view shows it stock, exactly as you\u2019d buy it. Nothing is added until the later steps."))];
+    else {
+      const fit = vehicleFit(C.id, d.brief), ch = store.lastChanges;
+      const spec = SPEC_FIELDS.map(([k, lab]) => {
+        const conf = C.confidence[k] || "estimate", src = C.sources[k] || "Studio estimate, needs a source";
+        const val = {
+          payloadLb: W(C.payloadLb / 2.20462),
+          gvwrLb: W(C.gvwrLb / 2.20462),
+          curbLb: W(C.curbLb / 2.20462),
+          wheelbase: L(E.s.wheelbase),
+          track: C.track.front === C.track.rear ? L(C.track.front) : `${L(C.track.front)} front, ${L(C.track.rear)} rear`,
+          tire: `${C.tire.size}, ${L(C.tire.diameter)}${C.tire.dualRear ? ", dual rear" : ""}`,
+          frameHeight: L(C.frameHeight),
+          ca: C.style === "cart" ? "n/a" : L(E.s.wheelbase + C.cab.back),
+          ba: L(C.ba),
+          length: L(C.ba + E.s.wheelbase + C.af),
+          width: L(C.width),
+          topSpeedMph: C.topSpeedMph ? `${C.topSpeedMph} mph` : "\u2014",
+          powertrain: C.powertrain
+        }[k];
+        return [lab, h("span", {}, val, " ", h("span", { class: "tag " + conf, title: src }, conf))];
+      });
+      yours = [
+        h(
+          "div",
+          { class: "yours" },
+          h("div", { class: "k note" }, "Your vehicle"),
+          h("h3", {}, C.label),
+          h("p", { class: "note" }, C.summary),
+          tagRow(fitTags(C, fit)),
+          C.wheelbaseOptions.length > 1 && !d.vehicle.whatIf ? choice("vehicle.wheelbase", { label: `Wheelbase: the ${C.short} comes in ${C.wheelbaseOptions.length} lengths`, options: C.wheelbaseOptions.map((w) => [w, `${Math.round(w / 0.0254)}\u2033 (${L(w)})`]), status: () => ({}), seg: true, note: "Pick the one you have or can find. A longer wheelbase gives a longer deck between the axles." }) : null,
+          ch.length ? box2("warn", h("strong", {}, "Switching kept your choices and changed:"), h("ul", {}, ch.map((c) => h("li", {}, `${FIELDS[c.path].label}: ${L(c.from)} \u2192 ${L(c.to)}${c.atMax ? " (chassis max)" : ""}`)))) : null,
+          stats([
+            ["Riders", `payload allows about ${fit.riders} after a typical build`],
+            ["Upper deck", `typical build: ${fit.deck}`],
+            ["Deck height", `${L(E.g.deckY)} (frame plus build-up)`]
+          ])
+        ),
+        h(
+          "details",
+          { class: "more" },
+          h("summary", {}, `Spec card and buying notes: ${C.short}`),
+          h("p", { class: "note" }, "Every value carries a source (hover a badge) and a confidence: spec sheet, measured, or estimate."),
+          stats(spec),
+          stats([["New", C.buying.newAvailable ? "available" : "not sold new"], ["Used", C.buying.used], ["Service", C.buying.service], C.buying.knownIssues.length ? ["Known issues", C.buying.knownIssues.join("; ")] : null]),
+          h(
+            "div",
+            { class: "chips" },
+            h("button", { type: "button", class: "chip", "aria-pressed": String(app2.overlays.dims), onclick: () => app2.toggleOverlay("dims") }, "Dimensions overlay"),
+            h("button", { type: "button", class: "chip", onclick: () => app2.pickSilhouette() }, app2.overlays.silhouette ? "Replace reference image" : "Reference silhouette\u2026")
+          ),
+          app2.overlays.silhouette ? h(
+            "div",
+            {},
+            range("vehicle.wheelbase", { label: "Reference image length", lim: [2, 14], value: app2.overlays.silLen, outFn: (x) => L(x), set: (x) => app2.setSilhouette({ len: x }) }),
+            range("vehicle.wheelbase", { label: "Slide the image", lim: [-4, 4], value: app2.overlays.silX, outFn: (x) => L(x), set: (x) => app2.setSilhouette({ x }) }),
+            h("button", { type: "button", class: "btn small", onclick: () => app2.setSilhouette(null) }, "Remove reference image")
+          ) : null
+        ),
+        h(
+          "details",
+          { class: "more", open: d.vehicle.whatIf || null },
+          h("summary", {}, "What-if: change the chassis numbers"),
+          toggle("vehicle.whatIf", { note: "Explore a configuration the catalog doesn\u2019t list. The spec card keeps the catalog values." }),
+          d.vehicle.whatIf ? [range("vehicle.wheelbase"), range("vehicle.track"), range("vehicle.wheelDia"), range("vehicle.frameHeight")] : null
+        ),
+        ...stepFlags(1)
+      ];
+    }
+    const famSeg = h("div", { class: "seg wide fams", role: "group", "aria-label": "Vehicle family" }, FAMILIES.map((f) => h("button", { type: "button", "aria-pressed": String(f.id === fam), onclick: () => {
       app2.ui.family = f.id;
       app2.rerender();
     } }, f.label)));
-    const famNote = FAMILIES.find((f) => f.id === fam).note;
     const cards = h("div", { class: "cards" }, shown.map((v) => {
-      const fit2 = app2.fitReady(v.id) ? vehicleFit(v.id, d.brief) : null;
-      const tags = [{ text: v.powertrain }, { text: `${W(v.payloadLb / 2.20462)} payload`, cls: v.confidence.payloadLb || "estimate" }];
-      if (fit2) tags.push({ text: `about ${fit2.riders} riders after a typical build`, cls: fit2.riders >= d.brief.ridersMin ? "ok" : "amber" }, { text: `upper deck: ${fit2.deck}`, cls: fit2.deck === "yes" ? "ok" : fit2.deck === "no" ? "red" : "amber" });
-      if (!powertrainOk(v, pref)) tags.push({ text: "doesn\u2019t match the brief", cls: "amber" });
+      const fit = app2.fitReady(v.id) ? vehicleFit(v.id, d.brief) : null, sel = C && v.id === C.id;
       return h(
         "button",
-        { type: "button", class: "ocard", "aria-pressed": String(v.id === C.id), onclick: () => {
-          if (v.id !== C.id) {
-            setValue("vehicle.id", v.id);
-            app2.afterVehicleSwitch();
-          }
-        } },
-        h("div", { class: "t" }, h("span", {}, v.short), h("span", { class: "tag" }, `${v.wheelbaseOptions.map((w) => Math.round(w / 0.0254) + "\u2033").join(" / ")} WB`)),
+        { type: "button", class: "ocard", "aria-pressed": String(!!sel), onclick: () => pick2(v) },
+        h("div", { class: "t" }, h("span", {}, v.short), h("span", { class: "tag" }, sel ? "your vehicle" : `${v.wheelbaseOptions.map((w) => Math.round(w / 0.0254) + "\u2033").join(" / ")} WB`)),
         h("div", { class: "d" }, v.summary),
-        h("div", { class: "meta" }, tags.map((t) => h("span", { class: "tag " + (t.cls || "") }, t.text)))
+        tagRow(fitTags(v, fit))
       );
     }));
-    const ch = store.lastChanges;
-    const spec = SPEC_FIELDS.map(([k, lab]) => {
-      const conf = C.confidence[k] || "estimate", src = C.sources[k] || "Studio estimate, needs a source";
-      const val = {
-        payloadLb: W(C.payloadLb / 2.20462),
-        gvwrLb: W(C.gvwrLb / 2.20462),
-        curbLb: W(C.curbLb / 2.20462),
-        wheelbase: L(E.s.wheelbase),
-        track: C.track.front === C.track.rear ? L(C.track.front) : `${L(C.track.front)} front, ${L(C.track.rear)} rear`,
-        tire: `${C.tire.size}, ${L(C.tire.diameter)}${C.tire.dualRear ? ", dual rear" : ""}`,
-        frameHeight: L(C.frameHeight),
-        ca: C.style === "cart" ? "n/a" : L(E.s.wheelbase + C.cab.back),
-        ba: L(C.ba),
-        length: L(C.ba + E.s.wheelbase + C.af),
-        width: L(C.width),
-        topSpeedMph: C.topSpeedMph ? `${C.topSpeedMph} mph` : "\u2014",
-        powertrain: C.powertrain
-      }[k];
-      return [lab, h("span", {}, val, " ", h("span", { class: "tag " + conf, title: src }, conf))];
-    });
-    const fit = vehicleFit(C.id, d.brief);
     return [
+      ...yours,
+      h("h3", {}, blank ? "Vehicles" : "Switch to another vehicle"),
+      h("p", { class: "note" }, blank ? "Browse by family. Tap a card to pick it." : "Switching keeps your later choices; the body is clamped to the new chassis."),
       famSeg,
-      h("p", { class: "note" }, famNote),
+      h("p", { class: "note" }, FAMILIES.find((f) => f.id === fam).note),
+      h("p", { class: "legend note" }, "On each card: payload (badge color shows spec sheet, measured or estimate), about how many riders fit after a typical build, and whether it can carry an upper deck."),
       hidden ? box2("warn", `${hidden} ${hidden === 1 ? "vehicle is" : "vehicles are"} hidden by the brief\u2019s powertrain preference (${pref}). Change it in the brief to see them.`) : null,
       cards,
-      h("h3", {}, C.label),
-      ch.length ? box2("warn", h("strong", {}, "Switching kept your choices and changed:"), h("ul", {}, ch.map((c) => h("li", {}, `${FIELDS[c.path].label}: ${L(c.from)} \u2192 ${L(c.to)}${c.atMax ? " (chassis max)" : ""}`)))) : null,
-      C.wheelbaseOptions.length > 1 && !d.vehicle.whatIf ? choice("vehicle.wheelbase", { label: "Wheelbase", options: C.wheelbaseOptions.map((w) => [w, `${Math.round(w / 0.0254)}\u2033 (${L(w)})`]), status: () => ({}), select: true }) : null,
-      box2("", h("strong", {}, "Fit to the brief"), stats([
-        ["Riders", `payload allows about ${fit.riders} riders after a typical build`],
-        ["Upper deck", `typical: ${fit.deck}`],
-        ["Deck height", `${L(E.g.deckY)} (frame plus build-up)`]
-      ])),
-      h("h3", {}, "Spec card"),
-      h("p", { class: "note" }, "Every value carries a source (hover a badge) and a confidence: spec sheet, measured, or estimate."),
-      stats(spec),
-      h("h3", {}, "Buying notes"),
-      stats([["New", C.buying.newAvailable ? "available" : "not sold new"], ["Used", C.buying.used], ["Service", C.buying.service], C.buying.knownIssues.length ? ["Known issues", C.buying.knownIssues.join("; ")] : null]),
-      h(
-        "div",
-        { class: "chips" },
-        h("button", { type: "button", class: "chip", "aria-pressed": String(app2.overlays.dims), onclick: () => app2.toggleOverlay("dims") }, "Dimensions overlay"),
-        h("button", { type: "button", class: "chip", onclick: () => app2.openVehicleTable(fam) }, "Compare vehicles"),
-        h("button", { type: "button", class: "chip", onclick: () => app2.pickSilhouette() }, app2.overlays.silhouette ? "Replace reference image" : "Reference silhouette\u2026")
-      ),
-      app2.overlays.silhouette ? h(
-        "div",
-        {},
-        range("vehicle.wheelbase", { label: "Reference image length", lim: [2, 14], value: app2.overlays.silLen, outFn: (x) => L(x), set: (x) => app2.setSilhouette({ len: x }) }),
-        range("vehicle.wheelbase", { label: "Slide the image", lim: [-4, 4], value: app2.overlays.silX, outFn: (x) => L(x), set: (x) => app2.setSilhouette({ x }) }),
-        h("button", { type: "button", class: "btn small", onclick: () => app2.setSilhouette(null) }, "Remove reference image")
-      ) : null,
-      h(
-        "details",
-        { class: "more", open: d.vehicle.whatIf || null },
-        h("summary", {}, "What-if: change the chassis numbers"),
-        toggle("vehicle.whatIf", { note: "Explore a configuration the catalog doesn\u2019t list. The spec card keeps the catalog values." }),
-        d.vehicle.whatIf ? [range("vehicle.wheelbase"), range("vehicle.track"), range("vehicle.wheelDia"), range("vehicle.frameHeight")] : null
-      ),
-      ...stepFlags(1)
+      h("div", { class: "chips" }, h("button", { type: "button", class: "chip", onclick: () => app2.openVehicleTable(fam) }, "Compare vehicles in a table"))
     ];
   }
   function strip() {
@@ -11161,7 +11413,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     ];
     const DESC = {
       stock: ["Stock", "Cab, doors, windshield, mirrors and bumper stay. Road legal if lights and mirrors stay; you can drive it there. The cab limits the deck and the driver area."],
-      cut: ["Cut at the windshield base (Ping\xFCina)", "Cab shell off; hood, fenders, factory dash, steering column, floor pan and driver\u2019s seat stay. The bumper goes. Not road legal: it must be hauled. The passenger seat goes if the front ladder needs its spot."],
+      cut: ["Cut at the windshield base", "Cab shell off; hood, fenders, factory dash, steering column, floor pan and driver\u2019s seat stay. The bumper goes. Not road legal: it must be hauled. The passenger seat goes if the front ladder needs its spot."],
       rails: ["Strip to frame rails", "Everything above the frame goes except the driver\u2019s controls and seat on a new platform. Most freedom, most work. The engine needs its own cover."]
     };
     return [
@@ -11179,9 +11431,9 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   function structure() {
     const d = store.d, E = store.E, g = E.g, lim = E.limits;
     const STY = {
-      "deck-posts": ["Deck and posts", "A flat deck on the frame with perimeter posts carrying a roof or upper deck. Slug-style scaffold."],
-      cage: ["Full cage (Ping\xFCina)", "A cage that wraps the whole vehicle including the front: attachment points everywhere for design structure."],
-      barge: ["Low party barge", "A deck only, with rails: no posts, no roof."],
+      barge: ["Low party barge", "A deck only, with rails: no posts, no roof. The simplest build."],
+      "deck-posts": ["Deck and posts", "A flat deck on the frame with perimeter posts carrying a roof or an upper deck. Slug-style scaffold."],
+      cage: ["Full cage", "A cage that wraps the whole vehicle including the front: attachment points everywhere for design structure."],
       "bed-ext": ["Cart bed extension", "A lighter frame extending a cart\u2019s stock bed. Carts only."]
     };
     const b = g.bom, ft = (m) => `${Math.round(m * 3.281).toLocaleString("en-US")} ft`, sheets = (m2, w) => Math.ceil(m2 * (1 + w) / 2.973);
@@ -11481,6 +11733,13 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   function renderScorecard(host, onStep) {
     const E = store.E;
     host.innerHTML = "";
+    if (E.blank) {
+      host.append(
+        h("div", { class: "score-head" }, h("h2", {}, "Scorecard"), h("span", {}, "nothing built yet")),
+        h("p", { class: "note" }, "Riders, weight, tipping, transport and the DMV checks fill in as soon as you pick a vehicle in step 1.")
+      );
+      return;
+    }
     const red = E.score.filter((l) => l.status === "red").length + E.flags.filter((f) => f.severity === "red").length;
     const amber = E.score.filter((l) => l.status === "amber").length + E.flags.filter((f) => f.severity === "amber").length;
     host.append(h("div", { class: "score-head" }, h("h2", {}, "Scorecard"), h("span", {}, red ? `${red} red, ${amber} amber` : amber ? `${amber} amber` : "all clear")));
@@ -11585,7 +11844,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   function pinguina() {
     const d = starterDesign("express");
     d.name = "Ping\xFCina (reference)";
-    d.brief = { ...d.brief, ridersMin: 15, ridersMax: 20, budget: 3, effort: 3, skills: ["welding", "cnc", "woodworking", "electrical"] };
+    d.brief = { ...d.brief, ridersMin: 15, ridersMax: 20, budget: 3, effort: 3 };
     d.vehicle.wheelbase = 4.04;
     d.strip.level = "cut";
     Object.assign(d.structure, { style: "cage", length: 5.49, width: 2.54, bodyFront: -0.41, posts: 5, frontPosts: true, powerBay: "section", powerBaySize: "medium" });
@@ -11752,8 +12011,41 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     compare: [],
     compareOn: false,
     card: null,
-    fitDone: /* @__PURE__ */ new Set()
+    fitDone: /* @__PURE__ */ new Set(),
+    saved: null
   };
+  var LAYER_KEYS = ["vehicle", "structure", "upper", "layout", "riders", "design", "lights"];
+  var STAGES = [
+    null,
+    ["vehicle"],
+    ["vehicle"],
+    ["vehicle", "structure"],
+    ["vehicle", "structure", "upper"],
+    ["vehicle", "structure", "upper", "layout", "riders"],
+    ["vehicle", "structure", "upper", "layout", "riders", "design"],
+    null,
+    null
+  ];
+  function stageLayers() {
+    const st = STAGES[store.step];
+    for (const k of LAYER_KEYS) app.layers[k] = st ? st.includes(k) : true;
+    app.layers.xray = false;
+    document.querySelectorAll("#layerButtons .v").forEach((b) => b.setAttribute("aria-pressed", String(!!app.layers[b.dataset.layer])));
+  }
+  var isPreview = () => store.step === 1 && store.E && !store.E.blank;
+  var previewCache = { key: null, model: null };
+  function stockModel(E) {
+    const key = JSON.stringify(E.d.vehicle);
+    if (previewCache.key === key) return previewCache.model;
+    const d = JSON.parse(JSON.stringify(E.d));
+    d.strip.level = "stock";
+    d.strip.rops = !!E.C.rops;
+    d.strip.bed = true;
+    const s = params(d);
+    s.preview = true;
+    previewCache = { key, model: buildCar(s, E.C) };
+    return previewCache.model;
+  }
   var car = { root: null, wheels: [], bbox: new T5.Box3(), extras: new T5.Group(), others: [] };
   scene.add(car.extras);
   carRoot.add(new T5.Group());
@@ -11772,15 +12064,31 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     if (car.root) {
       carRoot.remove(car.root);
       disposeTree(car.root);
+      car.root = null;
+      car.wheels = [];
     }
-    const b = buildThree(E.model);
+    if (E.blank) {
+      car.bbox.min.set(-3.2, 0, -1.3);
+      car.bbox.max.set(3.2, 2.6, 1.3);
+      rebuildOverlays();
+      return;
+    }
+    const preview = isPreview();
+    const model = preview ? stockModel(E) : E.model;
+    const b = buildThree(model);
     car.root = b.root;
     car.wheels = b.wheels;
     car.layers = b.layers;
     carRoot.add(car.root);
-    const pb = E.dims.withBikes;
-    car.bbox.min.set(...pb.min);
-    car.bbox.max.set(...pb.max);
+    if (preview) {
+      const pb = boundsOf(model.root, (o) => o.userData.layer && o.userData.layer !== "vehicle" || o.userData.noBox);
+      car.bbox.min.set(pb.min[0], 0, pb.min[2]);
+      car.bbox.max.set(pb.max[0], pb.max[1], pb.max[2]);
+    } else {
+      const pb = E.dims.withBikes;
+      car.bbox.min.set(...pb.min);
+      car.bbox.max.set(...pb.max);
+    }
     updateMaterialColors(E.s);
     updateV2Colors(E.s);
     const g = E.g, lc = (g.lx0 + g.lx1) / 2;
@@ -11797,6 +12105,8 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       disposeTree(c);
     }
     const E = store.E;
+    carRoot.position.y = 0;
+    if (E.blank) return;
     if (app.overlays.dims) car.extras.add(dimsOverlay(E, store.d.view.units));
     if (app.view === "cockpit" && E.view) car.extras.add(viewConeViz(E.view));
     if (app.overlays.silhouette) car.extras.add(silhouettePlane(app.overlays.silhouette, app.overlays.silLen, E.g.mid + app.overlays.silX, 0, 0.5)).position.z = -(E.g.W / 2 + 1.2);
@@ -11844,6 +12154,12 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   }
   var tmpColor = new T5.Color();
   function updateFrameUniforms() {
+    if (store.E.blank) {
+      lamps.forEach((l) => {
+        l.intensity = 0;
+      });
+      return;
+    }
     const s = store.E.s;
     carRoot.updateMatrixWorld(true);
     LED_U.uCarInv.value.copy(carRoot.matrixWorld).invert();
@@ -11877,6 +12193,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     MAT.beam.opacity = 0.055 * night;
   }
   function setLedCss() {
+    if (store.E.blank) return;
     const s = store.E.s, root = document.documentElement.style;
     root.setProperty("--led", s.ledColor);
     const c = new T5.Color(s.ledColor), lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
@@ -11930,11 +12247,13 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     return { tv, th: tv * aspect };
   }
   var fitDist = (hExt, vExt, fr, margin) => Math.max(vExt / 2 * margin / fr.tv, hExt / 2 * margin / fr.th);
+  var BLANK_VIEWS = /* @__PURE__ */ new Set(["hero", "left", "right", "front", "rear", "top"]);
   function viewPose(id, fr) {
-    const E = store.E, g = E.g;
+    const E = store.E, g = E.g || { deckY: 0 };
+    if (E.blank && !BLANK_VIEWS.has(id)) id = "hero";
     const b = car.bbox.clone();
     if (app.compareOn && car.others.length) for (const o of car.others) b.union(o.box);
-    if (id === "packed") {
+    if (id === "packed" && !E.blank) {
       const pk = E.dims.packed;
       b.min.set(pk.min[0] - 1, 0, pk.min[2]);
       b.max.set(pk.max[0] + 5, pk.max[1] + (TRAILERS[E.s.trailer]?.deck || 0), pk.max[2]);
@@ -12010,7 +12329,8 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     if (k >= 1) tween = null;
   }
   function setView(id, instant) {
-    if (id === "roof" && !store.E.g.decks.length) id = "hero";
+    if (store.E.blank ? !BLANK_VIEWS.has(id) : id === "roof" && !store.E.g.decks.length) id = "hero";
+    if (isPreview() && ["packed", "roof", "lounge", "top"].includes(id)) id = "hero";
     const was = app.view;
     app.view = id;
     app.userMoved = false;
@@ -12044,7 +12364,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   function updateViewButtons() {
     document.querySelectorAll("#viewButtons .v").forEach((b) => {
       b.setAttribute("aria-pressed", String(b.dataset.view === app.view));
-      if (b.dataset.view === "roof") b.disabled = !store.E.g.decks.length;
+      b.disabled = store.E.blank ? !BLANK_VIEWS.has(b.dataset.view) : b.dataset.view === "roof" && !store.E.g.decks.length;
     });
   }
   controls.addEventListener("start", () => {
@@ -12059,9 +12379,10 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     const nav = $("#stepper");
     nav.innerHTML = "";
     store.E.steps.forEach((st, i) => {
+      const locked = store.E.blank && i >= 2;
       const b = h(
         "button",
-        { type: "button", class: "step", "aria-current": i === store.step ? "step" : null, title: `${st.q}${st.items.length ? " \xB7 " + st.items.map((x) => x.label || x.title).join(", ") : ""}` },
+        { type: "button", class: "step", disabled: locked, "aria-current": i === store.step ? "step" : null, title: locked ? "Pick a vehicle first (step 1)" : `${st.q}${st.items.length ? " \xB7 " + st.items.map((x) => x.label || x.title).join(", ") : ""}` },
         h("span", { class: "n" }, String(i)),
         h("span", {}, st.title),
         h("span", { class: "dot " + st.status, "aria-label": st.status === "ok" ? "no conflicts" : `${st.status} flags` })
@@ -12071,8 +12392,18 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     });
   }
   function goStep(i) {
+    if (store.E.blank && i >= 2) {
+      toast("Pick a vehicle first: everything else builds on it.");
+      i = 1;
+    }
+    const wasPreview = isPreview();
     store.step = clamp4(i, 0, STEPS.length - 1);
     hideExplain();
+    stageLayers();
+    if (wasPreview !== isPreview()) {
+      rebuildCar();
+      if (!app.userMoved && !drive.on) setView(app.view);
+    } else applyVisibility();
     renderStepper();
     renderPanel(true);
     if (document.body.classList.contains("panel-hidden")) togglePanel(true);
@@ -12087,13 +12418,17 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   function renderPanel(scrollTop) {
     const i = store.step, st = STEPS[i], E = store.E;
     const body = $("#panelBody");
+    if (app.scrollTopNext) {
+      scrollTop = true;
+      app.scrollTopNext = false;
+    }
     if (!scrollTop) panelScroll[i] = body.scrollTop;
     const pt = E.tiers.perStep[i];
     $("#panelHead").innerHTML = "";
     $("#panelHead").append(
       h("h2", {}, `${i}. ${st.title}`),
       h("div", { class: "q" }, st.q),
-      h(
+      E.blank ? "" : h(
         "div",
         { class: "tiers" },
         pt ? [h("span", { class: "tag" }, `Cost here ${TIER_COST[pt.cost]}`), h("span", { class: "tag" }, `Effort here ${TIER_EFFORT[pt.effort]}`)] : null,
@@ -12110,6 +12445,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     body.scrollTop = scrollTop ? 0 : panelScroll[i] || 0;
     $("#prevBtn").disabled = i === 0;
     $("#nextBtn").textContent = i === STEPS.length - 1 ? "Done" : `Next: ${STEPS[i + 1].title}`;
+    $("#nextBtn").disabled = E.blank && i >= 1;
     $("#footTiers").textContent = "";
   }
   app.rerender = () => renderPanel(false);
@@ -12119,11 +12455,16 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     renderPanel(false);
     if (k === "dims" && app.overlays.dims) setView("left");
   };
-  app.afterVehicleSwitch = () => {
+  app.afterVehicleSwitch = (fromBlank) => {
     const C = VEHICLES[store.d.vehicle.id];
     app.ui.family = C.family;
-    toast(`Switched to the ${C.short}. Later choices were kept${store.lastChanges.length ? "; the body was clamped to the new chassis" : ""}.`);
+    app.scrollTopNext = true;
+    toast(fromBlank ? `Picked the ${C.short}. Here it is stock; each step from here adds its layer.` : `Switched to the ${C.short}. Later choices were kept${store.lastChanges.length ? "; the body was clamped to the new chassis" : ""}.`);
   };
+  app.resume = () => {
+    if (app.saved) loadDesign(app.saved, `Resumed ${app.saved.name}`);
+  };
+  app.newBlank = () => loadDesign(blankDesign(), "Started a blank design: set the brief, then pick a vehicle");
   app.fitReady = (id) => app.fitDone.has(id);
   function warmFits() {
     const ids = VEHICLE_IDS.filter((id) => !app.fitDone.has(id));
@@ -12245,6 +12586,15 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     const tabs = h("div", { class: "tabs seg" }, [["starters", "Starters"], ["cards", "Reality checks"]].map(([id, lab]) => h("button", { type: "button", "aria-pressed": String(id === tab), onclick: () => openStart(id) }, lab)));
     body.append(tabs);
     if (tab === "starters") {
+      body.append(h("div", { class: "start-grid" }, h(
+        "button",
+        { type: "button", class: "ocard", onclick: () => {
+          app.newBlank();
+          $("#startDlg").close();
+        } },
+        h("div", { class: "t" }, "Blank design"),
+        h("div", { class: "d" }, "No vehicle, nothing built. Set the brief, pick a vehicle, then add one layer per step.")
+      )));
       body.append(
         h("p", { class: "note" }, "Each starter is a complete design you can change step by step. Ping\xFCina is the reference build: load it to see a real one."),
         h("div", { class: "start-grid" }, STARTERS.map((s) => h(
@@ -12276,9 +12626,10 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   }
   function loadDesign(d, msg) {
     app.card = null;
-    setDesign(d);
     store.step = 0;
     store.lastChanges = [];
+    stageLayers();
+    setDesign(d);
     app.ui.family = null;
     toast(msg);
     setTimeout(() => setView("hero"), 50);
@@ -12322,6 +12673,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   }
   function renderCompare() {
     const bar = $("#compareBar");
+    if (store.E.blank) app.compareOn = false;
     if (!app.compareOn) {
       bar.hidden = true;
       clearOthers();
@@ -12450,6 +12802,10 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   }
   var sheetUrl = null;
   async function renderSheet() {
+    if (store.E.blank) {
+      toast("Pick a vehicle first");
+      return;
+    }
     document.body.classList.add("busy");
     try {
       if (document.fonts && document.fonts.load) await document.fonts.load('500 34px "Barlow Condensed"');
@@ -12554,6 +12910,10 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
   var drive = { on: false, v: 0, steer: 0, keys: /* @__PURE__ */ new Set(), dragging: false };
   var DRIVE_KEYS = /* @__PURE__ */ new Set(["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"]);
   function setDrive(on) {
+    if (on && store.E.blank) {
+      toast("Pick a vehicle first");
+      return;
+    }
     drive.on = on;
     document.body.classList.toggle("driving", on);
     $("#hud").hidden = !on;
@@ -12669,6 +13029,10 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
       exportGLB();
       menu.hidden = true;
     });
+    $("#newBtn").addEventListener("click", () => {
+      app.newBlank();
+      menu.hidden = true;
+    });
     $("#undoBtn").addEventListener("click", () => {
       toast(undo() ? "Undid the last change" : "Nothing to undo");
       menu.hidden = true;
@@ -12755,6 +13119,8 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     wire();
     if (innerWidth <= 900) document.body.classList.add("panel-hidden");
     store.d = loadInitial();
+    app.saved = savedDesign();
+    stageLayers();
     store.E = evaluate(store.d, { trusted: true });
     $("#designName").value = store.d.name;
     refreshTopbar();
@@ -12807,6 +13173,7 @@ diffuseColor.rgb *= 0.9 + 0.16 * gn;`);
     loadCard: (id, w) => loadCard(CARDS.find((c) => c.id === id), w),
     starters: STARTERS.map((s) => s.id),
     loadStarter: (id) => loadDesign(STARTERS.find((s) => s.id === id).build(), "Loaded"),
+    newBlank: () => app.newBlank(),
     pause: (v) => {
       paused = v;
     },

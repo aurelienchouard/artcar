@@ -154,3 +154,34 @@ test('share links round-trip', async () => {
 test('starters all evaluate', () => {
   for (const s of STARTERS) assert.ok(evaluate(s.build()).score.length === 12, s.id);
 });
+
+test('a blank design has no vehicle and evaluates to an empty state', async () => {
+  const { blankDesign, switchVehicle } = await import('../engine/state.js');
+  const d = blankDesign();
+  assert.equal(d.vehicle.id, null);
+  const E = evaluate(d);
+  assert.ok(E.blank && E.score.length === 0 && E.flags.length === 0 && E.steps.length === 9);
+  assert.equal(sanitize(JSON.parse(JSON.stringify(d))).vehicle.id, null, 'a blank design survives save and open');
+  d.brief.ridersMax = 30; d.brief.budget = 3;
+  const { design } = switchVehicle(d, 'npr');
+  assert.equal(design.vehicle.id, 'npr'); assert.equal(design.brief.ridersMax, 30); assert.equal(design.brief.budget, 3);
+  assert.ok(!evaluate(design, { viewCone: false }).blank);
+});
+
+test('crew skills are an output of the choices, not a brief input', () => {
+  const d = starterDesign('express');
+  assert.equal(d.brief.skills, undefined); assert.equal(d.brief.age, undefined);
+  let E = evaluate(d, { viewCone: false });
+  const ids = E.skills.map((k) => k.skill);
+  assert.ok(ids.includes('welding') && ids.includes('electrical') && ids.includes('mechanical'));
+  assert.ok(!E.flags.some((f) => f.id.startsWith('skill-')));
+  d.kits.full = { id: 'pinguina-ribs', p: kitDefaults('pinguina-ribs') }; d.structure.style = 'cage';
+  E = evaluate(d, { viewCone: false });
+  assert.ok(E.skills.some((k) => k.skill === 'cnc'), 'a CNC-cut kit adds CNC');
+});
+
+test('structure styles run from the simplest to the full cage', async () => {
+  const { FIELDS } = await import('../engine/fields.js');
+  assert.deepEqual(FIELDS['structure.style'].options.map((o) => o[0]), ['barge', 'deck-posts', 'cage', 'bed-ext']);
+  assert.equal(FIELDS['view.mood'].def, 'day');
+});

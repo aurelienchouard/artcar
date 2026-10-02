@@ -1,5 +1,5 @@
 /* The design store: one design object, an undo stack, side effects of each change, and persistence. */
-import { sanitize, starterDesign, switchVehicle, clampBody, kitDefaults, bunkHeadroom, fromV1 } from '../engine/state.js';
+import { sanitize, blankDesign, switchVehicle, clampBody, kitDefaults, bunkHeadroom, fromV1 } from '../engine/state.js';
 import { getPath, setPath, FIELDS } from '../engine/fields.js';
 import { evaluate } from '../engine/evaluate.js';
 import { R } from '../catalogs/rules.js';
@@ -22,25 +22,33 @@ const VIBES = {
   chill: { 'layout.seating': 'platform', 'layout.standing': 'none', 'layout.curtains': 'all' },
 };
 
-export function loadInitial() {
-  try { const raw = localStorage.getItem(KEY); if (raw) return sanitize(JSON.parse(raw)); } catch (e) { /* storage unavailable */ }
-  return starterDesign('express');
+/* Every visit opens on a blank design; the last design worked on (if it has a vehicle) can be resumed from the brief. */
+export function loadInitial() { return blankDesign(); }
+export function savedDesign() {
+  try { const raw = localStorage.getItem(KEY); if (raw) { const d = sanitize(JSON.parse(raw)); if (d.vehicle.id) return d; } } catch (e) { /* storage unavailable */ }
+  return null;
 }
 let persistTimer;
 function persist() {
   clearTimeout(persistTimer);
+  if (!store.d.vehicle.id) return;   // a blank design never overwrites the one to resume
   persistTimer = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(store.d)); } catch (e) { /* ignore */ } }, 300);
 }
 
-let evalQueued = false;
+/* Evaluations are coalesced. A discrete change (a click) runs on the next task so the panel answers at once;
+   a slider drag runs once per frame. */
+let evalQueued = false, wantFull = false;
 export function scheduleEval(full = true) {
+  wantFull = wantFull || full;
   if (evalQueued) return;
   evalQueued = true;
-  requestAnimationFrame(() => {
-    evalQueued = false;
-    store.E = evaluate(store.d, { trusted: true, viewCone: full });
+  const run = () => {
+    const vc = wantFull;
+    evalQueued = false; wantFull = false;
+    store.E = evaluate(store.d, { trusted: true, viewCone: vc });
     listeners.forEach((fn) => fn('eval'));
-  });
+  };
+  if (full) setTimeout(run, 0); else requestAnimationFrame(run);
 }
 export function setDesign(d, { keepUndo = false, silent = false } = {}) {
   if (store.d && !keepUndo) pushUndo();
@@ -59,9 +67,12 @@ export function setValue(path, value, { live = false } = {}) {
   const notes = [];
   store.lastChanges = path === 'vehicle.id' ? [] : store.lastChanges;
   if (path === 'vehicle.id') {
+    const fromBlank = !d.vehicle.id;
     const { design, changes } = switchVehicle(d, value);
     store.lastChanges = changes;
-    store.d = design;
+    // picked from a blank design: the brief's vibes pre-select layout options, as they would have in step 0
+    if (fromBlank) for (const v of design.brief.vibes) for (const [p, x] of Object.entries(VIBES[v] || {})) setPath(design, p, x);
+    store.d = fromBlank ? sanitize(design) : design;
   } else if (path.startsWith('kits.')) {
     const [, slot, ...rest] = path.split('.');
     if (!rest.length) d.kits[slot] = { id: value, p: value === 'none' ? {} : kitDefaults(value) };

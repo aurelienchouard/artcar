@@ -16,7 +16,7 @@ export const STARTERS = [
 export function pinguina() {
   const d = starterDesign('express');
   d.name = 'Pingüina (reference)';
-  d.brief = { ...d.brief, ridersMin: 15, ridersMax: 20, budget: 3, effort: 3, skills: ['welding', 'cnc', 'woodworking', 'electrical'] };
+  d.brief = { ...d.brief, ridersMin: 15, ridersMax: 20, budget: 3, effort: 3 };
   d.vehicle.wheelbase = 4.04;
   d.strip.level = 'cut';
   Object.assign(d.structure, { style: 'cage', length: 5.49, width: 2.54, bodyFront: -0.41, posts: 5, frontPosts: true, powerBay: 'section', powerBaySize: 'medium' });

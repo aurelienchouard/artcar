@@ -6,6 +6,11 @@ much, why the rule exists, and what would fix it. Every number is a planning est
 
 **Open it:** https://aurelienchouard.github.io/artcar/ (or `dist/index.html`, which works offline). The archived v1 is at `/artcar/v1/`.
 
+Every visit opens on a blank design: set the brief, pick a vehicle, then each step adds one layer to the 3D view
+(the stock vehicle alone while picking it, then the structure, the upper deck, the layout and riders, the design and
+the lights). The last design worked on can be resumed from the brief, and the File menu starts a new blank one.
+Crew skills are an output: the brief lists the skills the chosen build needs.
+
 ## How it is built
 
 One self-contained HTML file: ES modules bundled with esbuild, three.js vendored (`vendor/three-bundle.js`).

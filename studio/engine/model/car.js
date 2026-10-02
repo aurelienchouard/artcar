@@ -1,5 +1,5 @@
 import { Vec3, TAU, clamp, lerp, degToRad, radToDeg } from '../math.js';
-import { mesh, box, rbox, cylX, ringX, rod, group, geo, Node, scaleUV, meshGeo, UP } from './prims.js';
+import { mesh, box, rbox, cylX, ringX, rod, group, geo, Node, scaleUV, meshGeo, UP, latheZ } from './prims.js';
 import { R as rule } from '../../catalogs/rules.js';
 import { TUBE_BUILDS } from '../../catalogs/kits.js';
 import { intervalsMinus, overlap1, rectMinus, splitRun, slabs, packPoints, curtainGeometry, drawnCurtainGeometry, mergeSegs, pruneInEnvelope } from './helpers.js';
@@ -270,7 +270,9 @@ export function buildCar(s, C) {
   const subY0 = s.frameHeight - 0.02, subY1 = deckY - slabT;
   if (subY1 - subY0 > 0.03) {   // sub-frame: two rails on the chassis with crossmembers
     const sl = Math.max(0.2, xfs - xbR - 0.3), sw = Math.max(0.4, Math.min(floorW - 0.2, s.track - 0.3)), sx = (xbR + xfs) / 2, sy = (subY0 + subY1) / 2, sh = subY1 - subY0;
-    for (const sz of [-1, 1]) F(box(sl, sh, 0.1, 'frame', sx, sy, sz * (sw / 2 - 0.05), deckG));
+    // the two long members sit right on the chassis rails; crossmembers reach out to carry the deck edges
+    const railZ = isCart ? Math.min(sw / 2 - 0.05, 0.3) : 0.43;
+    for (const sz of [-1, 1]) F(box(sl, sh, 0.1, 'frame', sx, sy, sz * railZ, deckG));
     const n = Math.max(1, Math.round(sl / 0.9));
     for (let k = 0; k <= n; k++) F(box(0.08, sh, sw - 0.2, 'frame', sx - sl / 2 + 0.04 + (sl - 0.08) * k / n, sy, 0, deckG));
     bom.deckFrame += 2 * sl + (n + 1) * sw;
@@ -304,10 +306,22 @@ export function buildCar(s, C) {
     const spin = new Node(); spin.userData.spin = true; pivot.add(spin);
     const offs = C.dual && !front ? [-0.16, 0.16] : [0];
     for (const o of offs) {
-      const tire = mesh(geo('Cylinder', wr, wr, tireW, 36), 'rubber', spin); tire.rotation.x = Math.PI / 2; tire.position.z = o;
-      const rim = mesh(geo('Cylinder', wr * 0.58, wr * 0.58, tireW + 0.012, 24), 'rim', spin); rim.rotation.x = Math.PI / 2; rim.position.z = o;
-      box(wr * 1.02, 0.06, tireW + 0.018, 'frame', 0, 0, o, spin);
-      box(0.06, wr * 1.02, tireW + 0.018, 'frame', 0, 0, o, spin);
+      // tire with rounded shoulders, a dished wheel on the outer face, hub and lug nuts (they show the wheel turning)
+      const hw = tireW / 2, sh = Math.min(0.05, hw * 0.4), ri = wr * 0.62;
+      const tire = mesh(latheZ([[ri, -hw], [wr - sh, -hw], [wr - sh * 0.3, -hw + sh * 0.3], [wr, -hw + sh], [wr, hw - sh], [wr - sh * 0.3, hw - sh * 0.3], [wr - sh, hw], [ri, hw]], 40), 'rubber', spin); tire.position.z = o;
+      const face = sz * (hw - 0.012);
+      const wheel = mesh(geo('Cylinder', ri, ri, tireW - 0.03, 28, 1, true), 'rim', spin); wheel.rotation.x = Math.PI / 2; wheel.position.z = o;
+      const disc = mesh(geo('Cylinder', ri * 0.98, ri * 0.98, 0.016, 28), 'rim', spin); disc.rotation.x = Math.PI / 2; disc.position.z = o + face - sz * 0.02;
+      const hub = mesh(geo('Cylinder', ri * 0.36, ri * 0.42, 0.05, 20), 'chassis', spin); hub.rotation.x = Math.PI / 2; hub.position.z = o + face - sz * 0.01;
+      const nLug = isCart ? 4 : 8;
+      for (let k = 0; k < nLug; k++) {
+        const a = k / nLug * TAU, lug = mesh(geo('Cylinder', 0.014, 0.014, 0.03, 6), 'chrome', spin, false);
+        lug.rotation.x = Math.PI / 2; lug.position.set(Math.cos(a) * ri * 0.55, Math.sin(a) * ri * 0.55, o + face - sz * 0.005);
+      }
+      for (let k = 0; k < 5; k++) {   // vent holes in the wheel disc
+        const a = (k + 0.5) / 5 * TAU, hole = mesh(geo('Cylinder', ri * 0.13, ri * 0.13, 0.02, 12), 'trim', spin, false);
+        hole.rotation.x = Math.PI / 2; hole.position.set(Math.cos(a) * ri * 0.78, Math.sin(a) * ri * 0.78, o + face - sz * 0.018);
+      }
     }
     vehG.add(pivot);
     wheels.push({ pivot, spin, front });

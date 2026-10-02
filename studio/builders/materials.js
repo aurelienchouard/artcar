@@ -156,6 +156,11 @@ export function makeMaterials() {
   MAT.head = std({ color: 0x777777, emissive: 0xfff3dc, emissiveIntensity: 1.6 });
   MAT.screen = std({ color: 0x0b1320, emissive: 0x3a6ea8, emissiveIntensity: 0.9 });
   MAT.cab = std({ roughness: 0.32, metalness: 0.2 });
+  MAT.chassis = std({ color: 0x8c9096, metalness: 0.45, roughness: 0.5 });   // the vehicle's own frame: lighter than the build's black steel
+  MAT.trim = std({ color: 0x2a2b2e, roughness: 0.72, metalness: 0.05 });
+  MAT.tint = std({ color: 0x27303c, metalness: 0.4, roughness: 0.08 });   // vehicle glass: opaque and dark so it reads as glass against the paint
+  MAT.chrome = std({ color: 0xd8dade, metalness: 0.95, roughness: 0.18 });
+  MAT.amber = std({ color: 0x7a4a08, emissive: 0xff9a1a, emissiveIntensity: 0.9 });
   MAT.grille = std({ color: 0x1a1b1d, metalness: 0.75, roughness: 0.32 });
   MAT.glass = std({ color: 0x1b2633, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.4, depthWrite: false, side: T.DoubleSide });
   MAT.bowl = std({ color: 0xe6eef3, roughness: 0.05, transparent: true, opacity: 0.3, depthWrite: false });
