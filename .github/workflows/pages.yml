@@ -1,4 +1,4 @@
-# Publish the studio to GitHub Pages: v1 at https://aurelienchouard.github.io/artcar/ and v2 at /artcar/v2/
+# Publish the studio to GitHub Pages: v2 at https://aurelienchouard.github.io/artcar/, the archived v1 at /artcar/v1/
 name: Pages
 
 on:

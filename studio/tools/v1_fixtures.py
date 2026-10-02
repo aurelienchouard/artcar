@@ -1,6 +1,6 @@
 """Record v1's numbers as parity fixtures for the v2 engine.
 
-Loads the v1 page (dist/index.html), runs the six starters and every chassis x the v1 stress combos,
+Loads the v1 page (dist/v1/index.html), runs the six starters and every chassis x the v1 stress combos,
 and writes the full v1 state plus everything v1 computed to studio/test/fixtures/v1-parity.json.
 Run from the repo root after `python3 build.py`: python3 studio/tools/v1_fixtures.py
 """
@@ -8,7 +8,7 @@ import json, pathlib, sys
 from playwright.sync_api import sync_playwright
 root = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(root / 'tests'))
-PAGE = (root / 'dist' / 'index.html').as_uri()
+PAGE = (root / 'dist' / 'v1' / 'index.html').as_uri()
 # the same combos as tests/stress.py
 src = (root / 'tests' / 'stress.py').read_text()
 combos = eval(src[src.index('combos = [') + len('combos = '):src.index(']\n    for ch in') + 1].replace('dict(', 'dict('))
@@ -49,5 +49,5 @@ def fix(o):
     if isinstance(o, list): return [fix(v) for v in o]
     return o
 out = fix(out)
-dest.write_text(json.dumps({'note': 'Generated from v1 (dist/index.html) by studio/tools/v1_fixtures.py. Do not edit by hand.', 'cases': out}, indent=0, allow_nan=False))
+dest.write_text(json.dumps({'note': 'Generated from v1 (dist/v1/index.html) by studio/tools/v1_fixtures.py. Do not edit by hand.', 'cases': out}, indent=0, allow_nan=False))
 print(len(out), 'cases ->', dest.relative_to(root), dest.stat().st_size // 1024, 'KB')

@@ -4,7 +4,7 @@ A studio for understanding the constraints of building a Burning Man art car and
 campmates. Nine steps, a scorecard that is always visible, and an explainer behind every flag: what failed, by how
 much, why the rule exists, and what would fix it. Every number is a planning estimate.
 
-**Open it:** https://aurelienchouard.github.io/artcar/v2/ (or `dist/v2/index.html`, which works offline).
+**Open it:** https://aurelienchouard.github.io/artcar/ (or `dist/index.html`, which works offline). The archived v1 is at `/artcar/v1/`.
 
 ## How it is built
 

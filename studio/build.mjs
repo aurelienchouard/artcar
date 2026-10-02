@@ -1,6 +1,7 @@
 /* Build the v2 studio: validate every catalog, bundle the ES modules with esbuild, and inline three.js, the CSS and
-   the app into one self-contained, offline HTML file. Writes dist/v2/index.html and v2/index.html (for Pages served
-   straight from the branch). Run from the repo root: node studio/build.mjs */
+   the app into one self-contained, offline HTML file. Writes dist/index.html and index.html (for Pages served
+   straight from the branch); /v2/ redirects to the root so old links keep working. Run from the repo root:
+   node studio/build.mjs */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,8 +19,13 @@ const three = fs.readFileSync(path.join(root, 'vendor', 'three-bundle.js'), 'utf
 const css = fs.readFileSync(path.join(here, 'style.css'), 'utf8');
 let html = fs.readFileSync(path.join(here, 'index.html'), 'utf8');
 html = html.replace('/*__CSS__*/', () => css).replace('<script>/*__THREE__*/</script>', () => `<script>${three}</script>`).replace('<script>/*__APP__*/</script>', () => `<script>${app}</script>`);
-for (const dir of [path.join(root, 'dist', 'v2'), path.join(root, 'v2')]) {
-  fs.mkdirSync(dir, { recursive: true });
+const redirect = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Art Car Studio</title>
+<meta http-equiv="refresh" content="0; url=../"><script>location.replace('../' + location.hash)</script></head>
+<body><p>Art Car Studio moved to <a href="../">the main address</a>.</p></body></html>
+`;
+for (const dir of [path.join(root, 'dist'), root]) {
+  fs.mkdirSync(path.join(dir, 'v2'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'index.html'), html);
+  fs.writeFileSync(path.join(dir, 'v2', 'index.html'), redirect);
 }
-console.log('dist/v2/index.html', Math.round(html.length / 1024), 'KB (app', Math.round(app.length / 1024), 'KB)');
+console.log('dist/index.html', Math.round(html.length / 1024), 'KB (app', Math.round(app.length / 1024), 'KB)');

@@ -48,7 +48,8 @@ a{color:var(--led)}
 .menu-wrap{position:relative}
 .menu{position:absolute;top:calc(100% + 8px);right:0;z-index:20;border-radius:12px;padding:6px;display:flex;flex-direction:column;min-width:220px;background:var(--dusk-solid)}
 .menu button{background:none;border:0;text-align:left;padding:8px 10px;border-radius:8px}
-.menu button:hover{background:var(--dusk-3)}
+.menu button:hover,.menu a:hover{background:var(--dusk-3)}
+.menu a{padding:8px 10px;border-radius:8px;color:var(--rebar);text-decoration:none;font-size:13px}
 .btn{background:var(--dusk-2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;font-size:13.5px;font-weight:500;white-space:nowrap}
 .btn:hover{background:var(--dusk-3)}
 .btn.primary{background:var(--led);color:var(--on-led);border-color:transparent;font-weight:600}
