@@ -12,7 +12,7 @@ with sync_playwright() as p:
     # a first visit opens blank: no vehicle, nothing built, later steps locked
     settle(pg)
     check(pg.evaluate("window.__studio.store.E.blank && !window.__studio.car.root"), 'opens on a blank design with nothing built')
-    check(pg.evaluate("[...document.querySelectorAll('#stepper .step')].filter(b => b.disabled).length") == 7, 'steps after the vehicle wait for a vehicle')
+    check(pg.evaluate("[...document.querySelectorAll('#stepper .step')].filter(b => b.disabled).length") == 8, 'steps after the vehicle wait for a vehicle')
     # brief buttons answer right away, every time
     for lab, path, want in [('$$$', 'budget', 3), ('Light', 'effort', 1), ('$', 'budget', 1), ('Heavy', 'effort', 3)]:
         pg.locator(f'#panelBody .seg button:text-is("{lab}")').click()
@@ -29,6 +29,20 @@ with sync_playwright() as p:
     pg.evaluate("window.__studio.goStep(3)"); pg.wait_for_timeout(500)
     vis = set(pg.evaluate("window.__studio.car.root.children.filter(g => g.visible).map(g => g.userData.layer)"))
     check(vis == {'vehicle', 'structure'}, f'structure step adds the structure ({sorted(vis)})')
+    # design: a full shell or a cover; power and transport as their own steps
+    pg.evaluate("window.__studio.goStep(6)"); pg.wait_for_timeout(300)
+    pg.locator('#panelBody .ocard', has_text='Yes: one shell over everything').click(); settle(pg, "window.__studio.store.E.d.kits.body.id === 'pink-fish'", 300)
+    check(True, 'design: choosing a full shell gives the pink fish')
+    pg.locator('#panelBody .ocard', has_text='No: cover the sides and the engine').click(); settle(pg, "window.__studio.store.E.d.kits.body.id === 'side-tubes'", 300)
+    pg.locator('#panelBody .ocard', has_text='Rocket ship').click(); settle(pg, "window.__studio.store.E.d.kits.body.id === 'rocket'", 300)
+    pg.locator('#panelBody .seg button', has_text='Plywood').first.click(); settle(pg, "window.__studio.store.E.d.kits.body.p.build === 'plywood'", 300)
+    check(True, 'design: a rocket ship built from plywood')
+    pg.evaluate("window.__studio.goStep(8)"); pg.wait_for_timeout(300)
+    check(pg.locator('#panelHead h2').inner_text() == '8. Power' and pg.locator('#panelBody', has_text='Why power matters').count() == 1, 'power has its own step and says why it matters')
+    pg.evaluate("window.__studio.goStep(9)"); pg.wait_for_timeout(300)
+    check(pg.locator('#panelBody', has_text='Peik Construction').count() == 1 and pg.locator('#panelBody', has_text='Reno').count() == 0, 'transport: Peik hauls it, no Reno storage note')
+    pg.locator('#panelBody label', has_text='The skin and design pieces come off').click(); settle(pg, "window.__studio.store.E.d.transport.skinOff === false", 300)
+    check(pg.evaluate("window.__studio.store.E.teardown.pieces.every(p => p.group !== 'Design')"), 'transport: leaving the skin on keeps it out of the teardown')
     pg.evaluate("window.__studio.loadStarter('pinguina')"); settle(pg, "window.__studio.store.E.d.name.startsWith('Pingüina')")
     # save
     pg.click('#fileBtn')
@@ -38,7 +52,7 @@ with sync_playwright() as p:
     # change something, then open the saved file back
     pg.evaluate("window.__studio.loadStarter('haulster')"); settle(pg, "window.__studio.store.E.d.vehicle.id === 'haulster'")
     pg.set_input_files('#openInput', str(out / 'design.json')); settle(pg, "window.__studio.store.E.d.structure.style === 'cage'")
-    check(pg.evaluate("window.__studio.store.d.kits.full.id") == 'pinguina-ribs', 'open restores the saved design')
+    check(pg.evaluate("window.__studio.store.d.kits.body.id") == 'penguin', 'open restores the saved design')
     # a v1 save opens with its numbers
     v1 = {'app': 'art-car-studio', 'version': 1, 'design': {'chassis': 'npr', 'layout': 'ring', 'roofDeck': True, 'headroom': 1.95, 'keepCab': False, 'ladder': 'front', 'name': 'v1 save', 'tubeDia': 0.6}}
     (out / 'v1.json').write_text(json.dumps(v1))
@@ -46,11 +60,11 @@ with sync_playwright() as p:
     check(pg.evaluate("window.__studio.store.d.vehicle.id") == 'npr', 'a v1 file opens in v2')
     # share link round trip
     pg.evaluate("window.__studio.loadStarter('express')"); settle(pg, "window.__studio.store.E.d.vehicle.id === 'express'")
-    pg.evaluate("window.__studio.setValue('kits.theme', 'jellyfish'); window.__studio.setValue('layout.dj', 'front')"); settle(pg, "window.__studio.store.E.d.kits.theme.id === 'jellyfish'")
+    pg.evaluate("window.__studio.setValue('kits.body', 'pink-fish'); window.__studio.setValue('layout.dj', 'front')"); settle(pg, "window.__studio.store.E.d.kits.body.id === 'pink-fish'")
     url = pg.evaluate("window.__studio.shareLink()")
     want = pg.evaluate("JSON.stringify(window.__studio.store.d)")
     b2, pg2, errs2 = open_studio(p, hash='#' + url.split('#')[1])
-    settle(pg2, "window.__studio.store.E.d.kits.theme.id === 'jellyfish'")
+    settle(pg2, "window.__studio.store.E.d.kits.body.id === 'pink-fish'")
     check(pg2.evaluate("JSON.stringify(window.__studio.store.d)") == want, f'a shared link reopens the same design ({len(url)} chars)')
     errs += errs2; b2.close()
     # compare
@@ -61,11 +75,11 @@ with sync_playwright() as p:
     pg.screenshot(path=str(out / 'compare.png'))
     pg.click('#compareBar .chip'); pg.wait_for_timeout(300)
     # cards
-    pg.evaluate("window.__studio.loadCard('shinkansen', 'dream')"); settle(pg, "window.__studio.store.E.d.kits.theme.id === 'shinkansen'", 600)
+    pg.evaluate("window.__studio.loadCard('shinkansen', 'dream')"); settle(pg, "window.__studio.store.E.d.kits.body.id === 'bullet-train' && !window.__studio.store.E.d.kits.body.p.window", 600)
     banner = pg.evaluate("document.getElementById('cardBanner').innerText")
     check('What breaks' in banner and 'nearest buildable' in banner, 'reality card shows what breaks and offers the nearest buildable')
     pg.screenshot(path=str(out / 'card-shinkansen.png'))
-    pg.click('#cardBanner .btn.primary'); settle(pg, "window.__studio.store.E.d.kits.front.id === 'bullet-nose'", 600)
+    pg.click('#cardBanner .btn.primary'); settle(pg, "window.__studio.store.E.d.kits.body.p.window === true", 600)
     check(pg.evaluate("window.__studio.store.E.red.length") == 0, 'nearest buildable has no red flags')
     pg.screenshot(path=str(out / 'card-shinkansen-nearest.png'))
     # undo

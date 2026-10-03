@@ -23,7 +23,7 @@ export function fmtField(f, v, units) {
     case 'pct': return Math.round(v * 100) + '%';
     case 'taper': return v < 0.005 ? 'Straight' : `${Math.round(v * 100)}% narrower at the ends`;
     case 'kwh': return `${Math.round(v)} kWh`;
-    case 'pos': return Math.abs(v) < 0.04 ? 'Middle of the lounge' : `${Math.round(Math.abs(v) * 100)}% toward the ${v > 0 ? 'front' : 'back'}`;
+    case 'pos': return Math.abs(v) < 0.04 ? 'Middle of where it fits' : `${Math.round(Math.abs(v) * 100)}% toward the ${v > 0 ? 'front' : 'back'}`;
     default: return f.type === 'int' ? String(Math.round(v)) : String(v);
   }
 }

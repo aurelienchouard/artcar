@@ -11,7 +11,7 @@ export const STARTERS = [
   { id: 'pinguina', label: 'Pingüina (reference build)', reference: true, build: pinguina },
 ];
 
-/* Pingüina: Express cutaway cut at the windshield base, full steel cage, CNC plywood ribs on French cleats.
+/* Pingüina: Express cutaway cut at the windshield base, full steel cage, a CNC plywood rib lattice on French cleats.
    Head 8′, driver area 4′, lounge 9.5′, rear bench and storage 4.5′; about 25.7′ long. */
 export function pinguina() {
   const d = starterDesign('express');
@@ -19,13 +19,11 @@ export function pinguina() {
   d.brief = { ...d.brief, ridersMin: 15, ridersMax: 20, budget: 3, effort: 3 };
   d.vehicle.wheelbase = 4.04;
   d.strip.level = 'cut';
-  Object.assign(d.structure, { style: 'cage', length: 5.49, width: 2.54, bodyFront: -0.41, posts: 5, frontPosts: true, powerBay: 'section', powerBaySize: 'medium' });
+  Object.assign(d.structure, { style: 'cage', roofSpan: 'driver-back', length: 6.93, width: 2.54, bodyFront: 1.03, posts: 5, powerBay: 'section', powerBaySize: 'medium' });   // rear end where the real one is; the structure wraps the engine
   Object.assign(d.upper, { kind: 'stand', headroom: 2.0, coverage: 'mid', shadeFront: 1.22, shadeRear: 1.22, railHeight: 0.95, railsRemovable: true, roofRemovable: false, access: 'ladder-front', hatchSide: 'passenger', roofShade: 'cloth' });
   Object.assign(d.layout, { seating: 'lshape', seatDepth: 0.66, standing: 'party', rear: 'panels', rearLen: 1.37, upperSeating: 'pillows', curtains: 'none', bikeRack: 'rear', bikes: 4, secondStep: 'passenger', secondStepPos: 0 });
-  Object.assign(d.lights, { speakers: 'corners', power: 'generator', batteryKwh: 10, neon: true });
-  d.kits.side = { id: 'none', p: {} };
-  d.kits.front = { id: 'none', p: {} };
-  d.kits.full = { id: 'pinguina-ribs', p: { ...kitDefaults('pinguina-ribs'), head: 2.44 } };
+  Object.assign(d.lights, { speakers: 'corners', power: 'generator' });
+  d.kits.body = { id: 'penguin', p: { ...kitDefaults('penguin'), build: 'plywood', finish: 'lattice' } };
   d.transport.trailer = 'stepdeck';   // also hauled on a tow-truck tilt bed with a little overhang
   return d;
 }

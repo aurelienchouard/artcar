@@ -7,17 +7,13 @@ import { KITS } from '../catalogs/kits.js';
 import { viewCone } from './viewcone.js';
 import { kitPieces } from './model/kits.js';
 import { MATERIALS } from '../catalogs/materials.js';
-import { TUBE_BUILDS } from '../catalogs/kits.js';
+import { TUBE_BUILDS, BUILDS } from '../catalogs/kits.js';
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 function withKit(design, id, p) {
   const k = KITS[id], d = clone(design);
-  d.kits[k.category] = { id, p: { ...kitDefaults(id), ...(p || {}) } };
+  d.kits = { body: { id, p: { ...kitDefaults(id), ...(p || {}) } } };
   if (k.requires?.structure && !k.requires.structure.includes(d.structure.style)) d.structure.style = k.requires.structure[0];
-  if (k.requires?.open && d.strip.level === 'stock') d.strip.level = 'cut';
-  if (k.category !== 'theme') d.kits.theme = { id: 'none', p: {} };
-  if (k.category !== 'train' && k.category !== 'theme') d.kits.train = { id: 'none', p: {} };
-  if ((k.category === 'front' || k.category === 'side') ) d.kits.full = { id: 'none', p: {} };
   return d;
 }
 export function kitContract(id) {
@@ -57,7 +53,7 @@ export function kitContract(id) {
     },
     materials: k.materials,
     tiers(p) {
-      const m = MATERIALS[(p || {}).material], tb = k.builtin === 'tubes' ? TUBE_BUILDS[(p || {}).build] : null;
+      const m = MATERIALS[(p || {}).material] || BUILDS[(p || {}).build], tb = k.builtin === 'tubes' ? TUBE_BUILDS[(p || {}).build] : null;
       return { cost: Math.max(k.costTier, m ? m.cost : 0, tb ? tb.cost : 0), effort: Math.max(k.effortTier, m ? m.effort : 0, tb ? tb.effort : 0) };
     },
   };

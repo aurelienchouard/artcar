@@ -1,5 +1,5 @@
 /* Transport: packed size and the fit on every way of getting there, with margins (section 4.6).
-   Packed: the decorative layer always comes off, and so do the roof, posts and rails when marked removable. */
+   Packed: the design comes off unless marked to stay, and so do the roof, posts and rails when marked removable. */
 import { R } from '../catalogs/rules.js';
 import { TRAILERS } from '../catalogs/trailers.js';
 import { boundsOf } from './scene.js';
@@ -12,7 +12,9 @@ export function measure(root, s) {
   const playa = boundsOf(root, (o) => isRider(o) || isBike(o) || noBox(o));
   const withBikes = boundsOf(root, (o) => isRider(o) || noBox(o));
   const roofOff = !!s.removeRoof, railsOff = roofOff || !!s.removeRails;
-  const packed = boundsOf(root, (o) => isRider(o) || noBox(o) || o.userData.pack === 'off' || (roofOff && o.userData.pack === 'roof') || (railsOff && o.userData.pack === 'rails'));
+  const skinStays = s.skinOff === false;   // the design stays on when its pieces don't come off
+  const off = (o) => o.userData.pack === 'off' && !(skinStays && o.userData.layer === 'design');
+  const packed = boundsOf(root, (o) => isRider(o) || noBox(o) || off(o) || (roofOff && o.userData.pack === 'roof') || (railsOff && o.userData.pack === 'rails'));
   const vehicle = boundsOf(root, (o) => (o.userData.layer && o.userData.layer !== 'vehicle') || noBox(o));
   return { playa, withBikes, packed, vehicle };
 }

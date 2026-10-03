@@ -23,7 +23,9 @@ export function viewCone(root, g, opts = {}) {
     const tGround = d[1] < 0 ? eye[1] / -d[1] : Infinity;
     const tmax = Math.min(range, tGround);
     const hit = raycast(meshes, eye, d, tmax);
-    const isHit = hit.t < tmax - 1e-6 && hit.t > 0.12;
+    // a cover hugging the stock hood only blocks what the hood already blocks: not counted
+    const hugY = hit.node && hugOf(hit.node);
+    const isHit = hit.t < tmax - 1e-6 && hit.t > 0.12 && !(hugY != null && eye[1] + d[1] * hit.t <= hugY + 0.08);
     if (isHit) {
       blocked++;
       const owner = ownerOf(hit.node);
@@ -35,6 +37,7 @@ export function viewCone(root, g, opts = {}) {
   const blockers = Object.entries(by).sort((a, b) => b[1] - a[1]).map(([name, n]) => ({ name, share: n / total }));
   return { eye, fraction: blocked / total, rays, blockers, grid: [nH, nV] };
 }
+function hugOf(n) { for (let o = n; o; o = o.parent) if (o.userData.hugY != null) return o.userData.hugY; return null; }
 function ownerOf(n) {
   let o = n;
   while (o) {

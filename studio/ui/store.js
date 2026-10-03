@@ -1,5 +1,5 @@
 /* The design store: one design object, an undo stack, side effects of each change, and persistence. */
-import { sanitize, blankDesign, switchVehicle, clampBody, kitDefaults, bunkHeadroom, fromV1 } from '../engine/state.js';
+import { sanitize, blankDesign, switchVehicle, clampBody, kitDefaults, bunkHeadroom, fromV1, structureEffects } from '../engine/state.js';
 import { getPath, setPath, FIELDS } from '../engine/fields.js';
 import { evaluate } from '../engine/evaluate.js';
 import { R } from '../catalogs/rules.js';
@@ -96,7 +96,7 @@ export function setValue(path, value, { live = false } = {}) {
     }
     if (path === 'brief.ridersMin' && d.brief.ridersMax < value) d.brief.ridersMax = value;
     if (path === 'brief.ridersMax' && d.brief.ridersMin > value) d.brief.ridersMin = value;
-    if (path.startsWith('structure.') || path.startsWith('vehicle.')) clampBody(d);
+    if (path.startsWith('structure.') || path.startsWith('vehicle.')) { structureEffects(store.d, d, path); clampBody(d); }
     store.d = sanitize(d);
   }
   persist();
