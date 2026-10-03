@@ -24,7 +24,7 @@ export function buildWeights(g, s, C) {
     cushions: g.seatsLow * 10 + g.seatsRoof * (s.roofSeating === 'pillows' ? 5 : 10) + (s.curtains !== 'none' ? 8 : 0),
     power: s.batteryKwh * R('lithiumKgPerKwh') + R('powerElectronics') + (s.power === 'generator' ? R('generatorKg') : 0),
     sound: soundKg * sizeK,
-    extras: g.bikeCount * 15 + (g.daiquiri ? 90 : 0) + (s.roofDeck && s.neon ? 3 : 0) + (s.roofDeck ? 8 : 0),
+    extras: g.bikeCount * 15 + (g.daiquiri ? 90 : 0) + (s.roofDeck && s.neon && s.v1 ? 3 : 0) + (s.roofDeck ? 8 : 0),
     hardware: R('hardware') * (kgSteel + kgPly + kgSkins),
   };
   for (const it of g.extraMass || []) kg[it.cat] = (kg[it.cat] || 0) + it.kg;

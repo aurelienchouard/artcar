@@ -24,7 +24,8 @@ export const STEPS = [
   { id: 'layout', title: 'Layout', q: 'What happens on each level?' },
   { id: 'design', title: 'Design', q: 'What shape does it take?' },
   { id: 'lights', title: 'Lights and sound', q: 'How does it glow and sound?' },
-  { id: 'transport', title: 'Transport', q: 'How does it get to the playa?' },
+  { id: 'power', title: 'Power', q: 'How does it run all night?' },
+  { id: 'transport', title: 'Transport', q: 'What comes off, and how does it get to the playa?' },
 ];
 const RANK = { ok: 0, info: 0, na: 0, amber: 1, red: 2 };
 
@@ -38,7 +39,11 @@ export function evaluate(design, opts = {}) {
   const d = opts.trusted ? design : sanitize(design);
   if (!d.vehicle.id) return blankEvaluation(d);
   const s = params(d), C = vehicleOf(d.vehicle.id);
-  const model = buildCar(s, C), g = model.geom;
+  // the bank and the bay are outputs: size them from the loads, and rebuild once if the bay changed size
+  let model = buildCar(s, C), power = powerBudget(model.root, model.geom, s, { auto: true });
+  s.batteryKwh = power.bankKwh;
+  if (power.bay !== s.powerBaySize) { s.powerBaySize = power.bay; model = buildCar(s, C); power = powerBudget(model.root, model.geom, s, { auto: true }); }
+  const g = model.geom;
   const w = buildWeights(g, s, C);
   const rc = riderCount(g, C, w.buildKg);
   const tip = tipping(g, s, C, w.items, rc);
@@ -46,7 +51,6 @@ export function evaluate(design, opts = {}) {
   const tr = transportCheck(dims, s, C, g, w.buildKg);
   const dmv = dmvCheck(g, dims, s);
   const view = opts.viewCone === false ? null : viewCone(model.root, g);
-  const power = powerBudget(model.root, g, s);
   const tiers = tierTotals(d, s, C, g);
   const skills = requiredSkills(d, s);
   const teardown = teardownPlan(g, s, w);

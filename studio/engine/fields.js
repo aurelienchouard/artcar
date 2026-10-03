@@ -26,12 +26,12 @@ export const FIELDS = {
 
   /* step 3: structure */
   'structure.style': { type: 'enum', label: 'Structure style', options: opt(['barge', 'Low party barge'], ['deck-posts', 'Deck and posts'], ['cage', 'Full cage'], ['bed-ext', 'Cart bed extension']), def: 'deck-posts' },
+  'structure.roofSpan': { type: 'enum', label: 'Roof and upper deck', options: opt(['full', 'Over the entire length'], ['driver-back', 'Over the driver and the rear']), def: 'driver-back' },
   'structure.length': { type: 'num', min: 2.5, max: 12, step: 0.05, fmt: 'len', label: 'Body length', def: 5.9, lim: 'length' },
   'structure.width': { type: 'num', min: 1.4, max: 4.4, step: 0.01, fmt: 'len', label: 'Body width', def: 2.84, lim: 'width' },
-  'structure.bodyFront': { type: 'num', min: -0.5, max: 2.6, step: 0.01, fmt: 'len', label: 'Body front, ahead of the front axle', def: 0.2, lim: 'bodyFront' },
+  'structure.bodyFront': { type: 'num', min: -0.5, max: 2.6, step: 0.01, fmt: 'len', label: 'Structure past the front bumper', def: 1.03, lim: 'bodyFront' },   // stored from the front axle
   'structure.roofOverhang': { type: 'num', min: 0, max: 0.4, step: 0.01, fmt: 'len', label: 'Roof overhang', def: 0 },
   'structure.posts': { type: 'int', min: 2, max: 8, step: 1, label: 'Posts per side', def: 5 },
-  'structure.frontPosts': { type: 'bool', label: 'Posts ahead of the driver', def: false },
   'structure.material': { type: 'enum', label: 'Material', options: opt(['steel', 'All steel'], ['alu', 'Steel load path, aluminum secondary']), def: 'steel' },
   'structure.powerBay': { type: 'enum', label: 'Power bay', options: opt(['rear', 'Under the rear'], ['under', 'Under the deck'], ['section', 'In the rear section']), def: 'rear' },
   'structure.powerBaySize': { type: 'enum', label: 'Power bay size', options: opt(['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']), def: 'medium' },
@@ -61,10 +61,10 @@ export const FIELDS = {
   'layout.upperSeating': { type: 'enum', label: 'Upper seating', options: opt(['pillows', 'Floor pillows'], ['u', 'U of daybeds'], ['sides', 'Daybeds along the sides'], ['none', 'Open standing deck']), def: 'pillows' },
   'layout.driverStep': { type: 'bool', label: 'Step beside the driver', def: true },
   'layout.secondStep': { type: 'enum', label: 'Second entry step', options: opt(['passenger', 'Passenger side'], ['driver', 'Driver side'], ['none', 'None']), def: 'passenger' },
-  'layout.secondStepPos': { type: 'num', min: -1, max: 1, step: 0.01, fmt: 'pos', label: 'Second step position', def: 0.2 },
-  'layout.dj': { type: 'enum', label: 'DJ booth', options: opt(['none', 'None'], ['front', 'Front of the lounge'], ['rear', 'Back of the lounge']), def: 'none' },
+  'layout.secondStepPos': { type: 'num', min: -1, max: 1, step: 0.01, fmt: 'pos', label: 'Second step position, along the room between the wheels and other entries', def: 0.2 },
+  'layout.dj': { type: 'enum', label: 'DJ booth', options: opt(['none', 'None'], ['front', 'Front of the lounge, facing riders'], ['rear', 'Back of the lounge, facing riders'], ['side', 'Passenger side, facing the crowd outside'], ['upper', 'Upper deck, passenger side, facing the crowd']), def: 'none' },
   'layout.bar': { type: 'enum', label: 'Bar counter in the lounge', options: opt(['none', 'None'], ['side', 'Along the driver side']), def: 'none' },
-  'layout.storage': { type: 'enum', label: 'Storage lockers', options: opt(['none', 'None'], ['front', 'Front of the lounge'], ['rear', 'Back of the lounge']), def: 'none' },
+  'layout.storage': { type: 'enum', label: 'Storage', options: opt(['none', 'None'], ['front', 'Front of the lounge'], ['rear', 'Back of the lounge']), def: 'none' },
   'layout.bikeRack': { type: 'enum', label: 'Bike racks, hung by the front wheel', options: opt(['none', 'None'], ['rear', 'On the back'], ['sides', 'On both sides'], ['both', 'Back and sides']), def: 'rear' },
   'layout.bikes': { type: 'int', min: 1, max: 10, step: 1, label: 'Bikes per rack', def: 4 },
 
@@ -87,21 +87,23 @@ export const FIELDS = {
   'lights.ledLevel': { type: 'num', min: 0, max: 2, step: 0.01, fmt: 'pct', label: 'Brightness', def: 0.5 },
   'lights.pucks': { type: 'bool', label: 'Puck downlights under the roof', def: true },
   'lights.projectors': { type: 'bool', label: 'Projectors on the rail corners', def: true },
-  'lights.neon': { type: 'bool', label: 'Lightning bolt neon on the front rail', def: true },
+  'lights.neon': { type: 'bool', label: 'Lightning bolt neon on the front rail (v1 only)', def: false },
   'lights.neonSize': { type: 'num', min: 0.25, max: 1.25, step: 0.01, fmt: 'len', label: 'Neon height', def: 0.8 },
-  'lights.speakers': { type: 'enum', label: 'Speakers', options: opt(['corners', 'Hung at the lounge corners'], ['tubes', 'In the tube ends'], ['towers', 'Towers at the back of the lounge'], ['none', 'None']), def: 'corners' },
+  'lights.speakers': { type: 'enum', label: 'Speakers', options: opt(['corners', 'Hung at the lounge corners'], ['towers', 'Towers at the back of the lounge'], ['none', 'None']), def: 'corners' },
+  'lights.speakerFacing': { type: 'enum', label: 'Speakers face', options: opt(['lounge', 'The lounge: riders hear it'], ['playa', 'The playa: the crowd outside hears it']), def: 'lounge' },
   'lights.speakerSize': { type: 'enum', label: 'Speaker size', options: opt(['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']), def: 'medium' },
   'lights.power': { type: 'enum', label: 'Power', options: opt(['battery', 'Lithium batteries only'], ['generator', 'Propane generator and batteries']), def: 'generator' },
-  'lights.batteryKwh': { type: 'int', min: 2, max: 40, step: 1, fmt: 'kwh', label: 'Battery bank', def: 10 },
+  'lights.batteryKwh': { type: 'int', min: 2, max: 40, step: 1, fmt: 'kwh', label: 'Battery bank', def: 10 },   // v1 only: v2 sizes the bank from the loads
 
   /* step 8: transport */
+  'transport.skinOff': { type: 'bool', label: 'Skin and design pieces come off', def: true },
   'transport.trailer': { type: 'trailer', label: 'Getting it there', def: 'stepdeck' },
 
   /* view preferences saved with the design */
   'view.mood': { type: 'enum', label: 'Light', options: opt(['day', 'Day'], ['dusk', 'Dusk'], ['night', 'Night']), def: 'day' },
   'view.units': { type: 'enum', label: 'Units', options: opt(['imperial', 'Feet and pounds'], ['metric', 'Meters and kilograms']), def: 'imperial' },
 };
-export const KIT_SLOTS = ['front', 'side', 'full', 'train', 'theme'];
+export const KIT_SLOTS = ['body'];   // one design body: a cover for the sides and engine, or a full shell
 export const getPath = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 export function setPath(o, path, v) {
   const ks = path.split('.'); let a = o;

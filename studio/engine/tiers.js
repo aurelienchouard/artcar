@@ -1,7 +1,7 @@
 /* Cost and effort tiers (section 4.9): every option carries points; totals map to bands from the rules table. */
 import { R } from '../catalogs/rules.js';
 import { POINTS } from '../catalogs/tiers.js';
-import { TUBE_BUILDS } from '../catalogs/kits.js';
+import { TUBE_BUILDS, BUILDS } from '../catalogs/kits.js';
 import { MATERIALS } from '../catalogs/materials.js';
 
 const band = (list, v) => list.find(([lim]) => v <= lim)[1];
@@ -35,21 +35,22 @@ export function tierTotals(d, s, C, g) {
   for (const z of g.zones) add(5, POINTS.zone, z.name);
   for (const k of s.kits || []) {
     if (k.id === 'side-tubes') { const tb = TUBE_BUILDS[k.p.build] || TUBE_BUILDS.sheet; add(6, [Math.max(k.def.costTier, tb.cost), Math.max(k.def.effortTier, tb.effort)], `Side tubes, ${tb.label.toLowerCase()}`); continue; }
-    const m = MATERIALS[k.p.material];
+    const m = MATERIALS[k.p.material] || buildOf(k.p);
     add(6, [Math.max(k.def.costTier, m ? m.cost : 0), Math.max(k.def.effortTier, m ? m.effort : 0)], k.def.name);
   }
   add(7, POINTS.leds, 'LED lines and edges');
-  if (s.roofDeck && s.neon) add(7, POINTS.neon, 'Neon sign');
   if (g.projectorCount) add(7, POINTS.projectors, 'Projectors');
   add(7, POINTS.speakers[s.speakers] || [0, 0], 'Speakers');
   if (s.speakers !== 'none' && s.speakerSize === 'large') add(7, POINTS.speakerLarge, 'Large speakers');
-  add(7, band(POINTS.battery, s.batteryKwh), 'Battery bank');
-  if (s.power === 'generator') add(7, POINTS.generator, 'Generator');
+  add(8, band(POINTS.battery, s.batteryKwh), 'Battery bank');
+  if (s.power === 'generator') add(8, POINTS.generator, 'Generator');
   const cost = Object.values(steps).reduce((a, v) => a + v[0], 0), effort = Object.values(steps).reduce((a, v) => a + v[1], 0);
   const perStep = Object.fromEntries(Object.entries(steps).map(([k, [c, e]]) => [k, { cost: stepTier(c), effort: stepTier(e), points: [c, e] }]));
   return { cost: bandOf(cost, 'cost'), effort: bandOf(effort, 'effort'), points: [cost, effort], perStep, lines };
 }
 
+/* What a cover kit is built from: metal, plywood (skinned or an open lattice) or fabric. */
+export const buildOf = (p) => (p && p.build ? (p.build === 'plywood' && p.finish === 'lattice' ? BUILDS.lattice : BUILDS[p.build]) : null);
 /* The crew skills this build needs, from the choices made: an output, never a brief input. */
 export const SKILL_LABEL = { welding: 'Welding', cnc: 'CNC cutting', woodworking: 'Woodworking', electrical: 'Electrical', mechanical: 'Mechanical' };
 export function requiredSkills(d, s) {
@@ -63,7 +64,7 @@ export function requiredSkills(d, s) {
   for (const k of s.kits || []) {
     const skills = new Set(k.def.skills || []);
     if (k.id === 'side-tubes') (TUBE_BUILDS[k.p.build]?.skills || []).forEach((x) => skills.add(x));
-    const m = MATERIALS[k.p.material]; if (m) m.skills.forEach((x) => skills.add(x));
+    const m = MATERIALS[k.p.material] || buildOf(k.p); if (m) m.skills.forEach((x) => skills.add(x));
     for (const sk of skills) want(sk, k.def.name.toLowerCase());
   }
   const order = ['mechanical', 'welding', 'woodworking', 'cnc', 'electrical'];

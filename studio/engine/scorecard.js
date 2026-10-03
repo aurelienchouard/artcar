@@ -3,10 +3,11 @@
 import { R, RULES, HANDBOOK_URL } from '../catalogs/rules.js';
 import { fmtLen, fmtWeight, fmtInches, TIER_COST, TIER_EFFORT } from './units.js';
 import { riderKg } from './weight.js';
+import { buildOf } from './tiers.js';
 import { MATERIALS } from '../catalogs/materials.js';
 
 export const METRICS = [
-  ['riders', 'Riders', 5], ['payload', 'Payload', 1], ['tipping', 'Tipping', 4], ['heightPlaya', 'Height on playa', 4], ['heightHauled', 'Height hauled', 8],
+  ['riders', 'Riders', 5], ['payload', 'Payload', 1], ['tipping', 'Tipping', 4], ['heightPlaya', 'Height on playa', 4], ['heightHauled', 'Height hauled', 9],
   ['width', 'Width', 3], ['length', 'Length and DMV class', 3], ['rails', 'Upper deck rails', 4], ['view', 'Driver view', 6], ['road', 'Road legal', 2],
   ['cost', 'Cost', 0], ['effort', 'Effort', 0],
 ];
@@ -146,7 +147,7 @@ export function collectFlags(E, d) {
     flag('powertrain', 1, 'amber', 'Powertrain doesn’t match the brief', `The brief asks for ${d.brief.powertrain}; the ${C.short} is ${C.powertrain}.`);
   if (C.buying && C.buying.newAvailable && /^none|^few|^rare/i.test(C.buying.used || '')) flag('used-market', 1, 'amber', 'Hard to find used', `${C.buying.used}.`);
   if (C.style === 'cart' && !s.rops) flag('rops', 2, g.barge ? 'red' : 'amber', 'No factory roll bar', g.barge ? 'The low barge has no posts, so nothing protects the driver in a rollover. Keep the factory roll bar or add posts.' : 'With the factory canopy gone, the posts right behind the driver must be built and braced as a roll bar.');
-  if (s.strip === 'rails' && !(s.kits || []).some((k) => k.def.covers?.includes('front') || k.id === 'hood-cover'))
+  if (s.strip === 'rails' && !(s.kits || []).length)
     flag('engine-cover', 6, 'amber', 'The engine needs a cover', 'Stripped to the frame rails, the engine and radiator are open. Add a front kit; keep the radiator’s airflow and the headlights clear.');
   if (g.tooNarrow) flag('cab-fit', 3, 'red', 'Body narrower than the cab', 'The body must be at least as wide as the cab it wraps around.');
   if (g.pokeOut) flag('poke-out', 6, 'amber', 'Front tires stick out at full lock', 'At full steering lock the front tires swing past the body side. Widen the body or accept the bare tire.');
@@ -154,15 +155,17 @@ export function collectFlags(E, d) {
   if (g.bikesWanted && g.bikeCount < g.bikesWanted) flag('bikes', 5, 'amber', 'Not every bike fits', `${g.bikeCount} of ${g.bikesWanted} bikes have a spot.`);
   if (g.stairsFailed) flag('stairs', 4, 'red', 'Stairs don’t fit', 'Stairs need a long enough lounge under a rideable deck and a stand-under height. Use a ladder instead.');
   if (g.deckFrontCapped) flag('deck-cap', 4, 'info', 'Deck stops short of the front', 'Without posts ahead of the driver, the deck can only reach about 1.6′ past the last post. The rest stays shade.');
-  if (power.status !== 'ok') flag('power', 7, power.status, 'Power won’t last the night', `The bank runs about ${Number.isFinite(power.hours) ? power.hours.toFixed(1) : '∞'} h at this load; a night is ${power.need} h. About ${power.recommendKwh} kWh would do it${s.power === 'generator' ? '' : ', or add the generator'}.`);
-  for (const p of power.bayProblems) flag('bay', 3, 'amber', 'Power bay too small', `${p[0].toUpperCase()}${p.slice(1)}.`);
+  if (power.status !== 'ok') flag('power', 8, power.status, 'Power won’t last the night', `Even the biggest bank (${power.bankKwh} kWh) runs about ${Number.isFinite(power.hours) ? power.hours.toFixed(1) : '∞'} h at this load; a night is ${power.need} h.${s.power === 'generator' ? ' Cut the load: fewer LEDs, smaller speakers, no frozen drinks.' : ' Add the generator, or cut the load.'}`);
+  if (power.auto && !power.genW && power.bankKwh > 15) flag('power-heavy', 8, 'amber', 'A big, heavy battery bank', `Running this load all night on batteries takes about ${power.bankKwh} kWh, roughly ${fmtWeight(power.batteryKg, u)} of lithium. The generator would carry most of it.`);
+  for (const p of power.bayProblems) flag('bay', 8, 'amber', 'Power bay too small', `${p[0].toUpperCase()}${p.slice(1)}.`);
   for (const k of s.kits || []) {
-    if (MATERIALS[k.p.material]?.warning) flag('fabric-day', 6, 'amber', 'Fabric looks bad by day', `${k.def.name}: ${MATERIALS[k.p.material].warning}`);
+    const warn = MATERIALS[k.p.material]?.warning || buildOf(k.p)?.warning;
+    if (warn) flag('fabric-day', 6, 'amber', 'Fabric looks bad by day', `${k.def.name}: ${warn}`);
     if (k.def.expects?.axles && C.axles < k.def.expects.axles) flag('axles', 6, 'amber', 'Wrong axle count', `${k.def.name}: ${k.def.expects.why}`);
   }
   const allow = { any: 3, drive: 1, tow: 1, hauler: 3 }[d.brief.transport];
-  if (tr.chosen.difficulty > allow) flag('transport-brief', 8, 'amber', 'Harder transport than the brief', `A ${tr.chosen.short} is a ${['', 'easy', 'moderate', 'hard'][tr.chosen.difficulty]} haul; the brief says ${({ drive: 'drive it', tow: 'tow it ourselves', hauler: 'hire a hauler', any: 'any' })[d.brief.transport]}.`);
-  if (!tr.chosen.fits && tr.chosen.problems.some((p) => !p.startsWith('too tall'))) flag('transport-fit', 8, 'red', `Doesn’t fit the ${tr.chosen.short}`, `${tr.chosen.problems.join(', ')}.`);
+  if (tr.chosen.difficulty > allow) flag('transport-brief', 9, 'amber', 'Harder transport than the brief', `A ${tr.chosen.short} is a ${['', 'easy', 'moderate', 'hard'][tr.chosen.difficulty]} haul; the brief says ${({ drive: 'drive it', tow: 'tow it ourselves', hauler: 'hire a hauler', any: 'any' })[d.brief.transport]}.`);
+  if (!tr.chosen.fits && tr.chosen.problems.some((p) => !p.startsWith('too tall'))) flag('transport-fit', 9, 'red', `Doesn’t fit the ${tr.chosen.short}`, `${tr.chosen.problems.join(', ')}.`);
   if (rc.cap === 0) flag('no-riders', 5, 'red', 'No riders fit', 'The build uses all the payload before anyone climbs on.');
   return f;
 }

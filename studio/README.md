@@ -11,6 +11,17 @@ Every visit opens on a blank design: set the brief, pick a vehicle, then each st
 the lights). The last design worked on can be resumed from the brief, and the File menu starts a new blank one.
 Crew skills are an output: the brief lists the skills the chosen build needs.
 
+Ten steps: brief, vehicle, strip down, structure, upper deck, layout, design, lights and sound, power, transport.
+- **Structure** always wraps the front of the vehicle (a crossmember ahead of the bumper, hoops over a long hood) and
+  runs from past the rear wheel to 60% of the wheelbase behind the rear axle (70% on carts), starting at an ideal of
+  about 45%. The roof and upper deck run over the entire length (pink fish) or over the driver and the rear (Pingüina).
+- **Design** is one choice: a full body shell (pink fish, glowing slug) with a mouth for the driver, or a cover for
+  the sides and the engine (side tubes, rocket ship, penguin, bullet train) built from metal or plywood. Fronts slope
+  under the driver's sight line instead of being cut.
+- **Power** is an output: the battery bank and the power bay are sized from the loads you picked.
+- **Transport** starts with what comes off (skin, rails and cushions, roof and posts), then the trailer Peik
+  Construction would haul it on, then where the pieces live between burns (on the vehicle or in a container).
+
 ## How it is built
 
 One self-contained HTML file: ES modules bundled with esbuild, three.js vendored (`vendor/three-bundle.js`).
@@ -31,7 +42,8 @@ Option eligibility (greyed-out options with their reasons) comes from `engine/el
 
 - **A vehicle:** add an entry to `catalogs/vehicles.js`. Use `extends` to start from a similar vehicle; every fact you
   don't source yourself is shown as an estimate ("assumed from …, verify"). Badge each field with `facts({...})`.
-- **A design kit:** add a `defineKit({...})` entry to `catalogs/kits.js` with the full kit contract: category, params,
+- **A design shape:** add a `defineKit({...})` entry to `catalogs/kits.js` with the full kit contract: category
+  (`cover` for the sides and engine, `full` for a whole-body shell), params,
   materials, wheel clearance, rider openings, transport, look by day and night, platforms, tiers, explainer, and
   `parts(T, p)` built from the parts toolbox (`T.shell`, `T.band`, `T.polyline`, `T.panel`, `T.solid`, `T.led`).
   Shells drop only the faces the wheel envelope touches and keep the standard rider and driver openings.

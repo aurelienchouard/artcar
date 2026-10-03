@@ -10,7 +10,7 @@ const fx = JSON.parse(fs.readFileSync(new URL('../test/fixtures/v1-parity.json',
 let bad = 0;
 const t0 = Date.now();
 for (const c of fx.cases) {
-  const s = VIA ? params(fromV1(c.state)) : c.state, C = VEHICLES[s.chassis];
+  const s = VIA ? { ...params(fromV1(c.state)), v1: true } : c.state, C = VEHICLES[s.chassis];
   const { geom: g } = buildCar(s, C);
   const w = buildWeights(g, s, C), rc = riderCount(g, C, w.buildKg), tip = tipping(g, s, C, w.items, rc);
   const i = c.info;

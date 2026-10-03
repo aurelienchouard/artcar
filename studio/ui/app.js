@@ -40,7 +40,7 @@ const app = {
    the upper deck, the layout and riders, the design, the lights. The brief and transport steps show everything. */
 const LAYER_KEYS = ['vehicle', 'structure', 'upper', 'layout', 'riders', 'design', 'lights'];
 const STAGES = [null, ['vehicle'], ['vehicle'], ['vehicle', 'structure'], ['vehicle', 'structure', 'upper'],
-  ['vehicle', 'structure', 'upper', 'layout', 'riders'], ['vehicle', 'structure', 'upper', 'layout', 'riders', 'design'], null, null];
+  ['vehicle', 'structure', 'upper', 'layout', 'riders'], ['vehicle', 'structure', 'upper', 'layout', 'riders', 'design'], null, null, null];
 function stageLayers() {
   const st = STAGES[store.step];
   for (const k of LAYER_KEYS) app.layers[k] = st ? st.includes(k) : true;
@@ -128,7 +128,7 @@ function applyVisibility() {
     const { layer, pack } = grp.userData;
     let vis = L[layer] !== false;
     if (layer === 'riders') vis = L.riders && L.layout && !packed && v !== 'cockpit' && !(cut && pack === 'roof') && !(railsOff && pack === 'roof');
-    if (packed && (pack === 'off' || (roofOff && pack === 'roof') || (railsOff && pack === 'rails'))) vis = false;
+    if (packed && ((pack === 'off' && !(layer === 'design' && s.skinOff === false)) || (roofOff && pack === 'roof') || (railsOff && pack === 'rails'))) vis = false;
     if (cut && (pack === 'roof' || pack === 'rails')) vis = false;
     grp.visible = vis;
   }
@@ -322,8 +322,9 @@ function goStep(i) {
   renderStepper(); renderPanel(true);
   if (document.body.classList.contains('panel-hidden')) togglePanel(true);
   if (store.step === 1 && !app.overlays.dims && app.view === 'hero') { /* keep the view */ }
-  if (store.step === 8 && app.view !== 'packed') setView('packed');
-  else if (store.step !== 8 && app.view === 'packed') setView('hero');
+  const T = STEPS.findIndex((x) => x.id === 'transport');
+  if (store.step === T && app.view !== 'packed') setView('packed');
+  else if (store.step !== T && app.view === 'packed') setView('hero');
   if (store.step === 1) warmFits();
 }
 app.goStep = goStep;

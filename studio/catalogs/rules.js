@@ -34,6 +34,7 @@ export const RULES = {
   skinCoroplast: { value: 0.7, unit: 'kg/m²', label: 'Coroplast, 4 mm', source: EST, verified: '2026-10-02', note: '' },
   skinEva: { value: 1.0, unit: 'kg/m²', label: 'EVA foam, 12 mm', source: EST, verified: '2026-10-02', note: '' },
   skinFabric: { value: 0.3, unit: 'kg/m²', label: 'Stretch fabric', source: EST, verified: '2026-10-02', note: '' },
+  plySlat: { value: 1.0, unit: 'kg/m', label: 'Plywood slat, 3½″ strip of ¾″ ply', source: EST, verified: '2026-10-03', note: '' },
   conduit: { value: 0.75, unit: 'kg/m', label: '¾″ EMT conduit hoops', source: EST, verified: '2026-10-02', note: 'About ½ lb per foot.' },
   hdpe: { value: 0.6, unit: 'kg/m', label: 'HDPE tube, 2″', source: EST, verified: '2026-10-02', note: '' },
   hardware: { value: 0.06, unit: '×', label: 'Hardware allowance on frame, wood and skins', source: V1, verified: '2026-10-02', note: 'Bolts, brackets, cleats, fasteners.' },
@@ -45,6 +46,8 @@ export const RULES = {
   generatorKg: { value: 90, unit: 'kg', label: 'Propane generator with two tanks', source: V1, verified: '2026-10-02', note: '' },
   generatorKw: { value: 2.0, unit: 'kW', label: 'Generator continuous output', source: EST, verified: '2026-10-02', note: 'A 2,200 W inverter generator on propane.' },
   usableFraction: { value: 0.8, unit: '×', label: 'Usable share of a lithium bank', source: THUMB, verified: '2026-10-02', note: 'Leave headroom for cold mornings and battery life.' },
+  generatorBufferHours: { value: 2, unit: 'h', label: 'Battery buffer with a generator', source: THUMB, verified: '2026-10-03', note: 'Quiet hours at art and the generator’s start-up; the bank covers the whole load this long.' },
+  propaneLbPerKwh: { value: 1.1, unit: 'lb/kWh', label: 'Propane per kWh from an inverter generator', source: EST, verified: '2026-10-03', note: 'A 2,200 W inverter generator on propane at part load (est.).' },
   nightHours: { value: 8, unit: 'h', label: 'Hours of running per night', source: THUMB, verified: '2026-10-02', note: 'Dusk to sunrise is about 11 hours in late August; most cars run 6–8.' },
   ledWattsPerM: { value: 12, unit: 'W/m', label: 'LED strip at full brightness', source: EST, verified: '2026-10-02', note: 'Typical 60 LED/m 12 V strip.' },
 
@@ -52,7 +55,10 @@ export const RULES = {
   rearOverhangTruck: { value: 0.6, unit: '× WB', label: 'Rear overhang limit on trucks', source: V1, verified: '2026-10-02', note: 'Rear axle to body rear. Past this the front axle goes light and the frame needs an engineer.' },
   rearOverhangCart: { value: 0.7, unit: '× WB', label: 'Rear overhang limit on carts', source: V1, verified: '2026-10-02', note: '' },
   rearOverhangOwnPlus: { value: 0.15, unit: 'm', label: 'Or the vehicle’s own rear overhang plus 6″', source: V1, verified: '2026-10-02', note: '' },
-  bodyFrontPastBumper: { value: 0.3, unit: 'm', label: 'Body front past the bumper', source: V1, verified: '2026-10-02', note: 'About 1′.' },
+  bodyFrontPastBumper: { value: 0.3, unit: 'm', label: 'Structure past the front bumper, maximum', source: V1, verified: '2026-10-02', note: 'About 1′.' },
+  bodyFrontMinPastBumper: { value: 0.05, unit: 'm', label: 'Structure past the front bumper, minimum', source: THUMB, verified: '2026-10-03', note: 'The structure always wraps the front of the engine so a skin can cover it.' },
+  idealMaxLength: { value: 6.6, unit: 'm', label: 'Ideal body length, at most', source: THUMB, verified: '2026-10-03', note: 'About 21′8″: with side tubes past both ends the car stays under the DMV’s 25′ Limited City Use line, and it fits a lowboy’s 24′ well.' },
+  rearOverhangIdeal: { value: 0.45, unit: '× WB', label: 'Ideal rear overhang', source: THUMB, verified: '2026-10-03', note: 'About 45% of the wheelbase keeps most of the load between the axles; Pingüina sits right there.' },
   bodyWidthPlusMax: { value: 1.0, unit: 'm', label: 'Body width over the vehicle, maximum', source: V1, verified: '2026-10-02', note: 'About 1.6′ per side.' },
   bodyWidthPlusMin: { value: 0.3, unit: 'm', label: 'Body width over the vehicle, minimum', source: V1, verified: '2026-10-02', note: '' },
 
@@ -73,6 +79,8 @@ export const RULES = {
   roadHeight: { value: 4.1148, unit: 'm', label: 'Height measured from the road (13′6″)', source: 'Common US state limit', verified: '2026-10-02', note: 'Some western states allow 14′; beyond that, oversize permits.' },
   roadHeightWest: { value: 4.2672, unit: 'm', label: 'Western-state height limit (14′)', source: 'Several western states', verified: '2026-10-02', note: 'Check every state on the route.' },
   haulAmberMargin: { value: 0.1016, unit: 'm', label: 'Hauled height, amber with less than 4″ to spare', source: THUMB, verified: '2026-10-02', note: 'Proposal: trailers sag and loads shift.' },
+  containerPacking: { value: 0.6, unit: '×', label: 'Usable share of a shipping container', source: THUMB, verified: '2026-10-03', note: 'Racks, blankets and odd shapes waste about 40% of a 20′ (33 m³) or 40′ (68 m³) box.' },
+  skinStackDepth: { value: 0.15, unit: 'm', label: 'Stacked depth of design panels', source: THUMB, verified: '2026-10-03', note: 'Curved skin sections on their ribs stack about 6″ deep per layer.' },
   liftPerPerson: { value: 25, unit: 'kg', label: 'Lift per person for teardown', source: THUMB, verified: '2026-10-02', note: 'About 55 lb, a comfortable two-hand carry.' },
 
   /* DMV */

@@ -10,10 +10,12 @@ import { KITS } from '../catalogs/kits.js';
 const VEHICLES = { cart: 'haulster', cabover: 'npr', cutaway: 'express', 'chassis-cab': 'f350' };
 for (const [id, k] of Object.entries(KITS)) {
   test(`kit ${id} clears the wheels at full lock`, () => {
-    for (const [fam, vid] of Object.entries(VEHICLES)) {
+    // every construction: metal, skinned plywood, open lattice, fabric (ribs and skins differ)
+    const builds = k.params?.build ? k.params.build.options.flatMap(([b]) => (b === 'plywood' && k.params.finish ? [[b, 'skin'], [b, 'lattice']] : [[b, undefined]])) : [[undefined, undefined]];
+    for (const [fam, vid] of Object.entries(VEHICLES)) for (const [build, finish] of builds) {
       if (!k.platforms.includes(fam)) continue;
       const d = starterDesign(vid);
-      d.kits[k.category] = { id, p: kitDefaults(id) };
+      d.kits.body = { id, p: { ...kitDefaults(id), ...(build ? { build } : {}), ...(finish ? { finish } : {}) } };
       if (k.requires?.structure) d.structure.style = k.requires.structure[0];
       const E = evaluate(d, { viewCone: false });
       const g = E.g;
@@ -30,7 +32,7 @@ for (const [id, k] of Object.entries(KITS)) {
           if (inside(cx, cy, cz)) bad++;
         }
       }
-      assert.equal(bad, 0, `${id} on ${vid}: ${bad} faces inside the wheel envelope`);
+      assert.equal(bad, 0, `${id} (${build || 'default'}${finish ? ' ' + finish : ''}) on ${vid}: ${bad} faces inside the wheel envelope`);
     }
   });
 }

@@ -13,31 +13,29 @@ export const CARDS = [
       const d = starterDesign('e450');
       d.name = 'Shinkansen, as dreamed';
       d.brief = { ...d.brief, effort: 1, budget: 2 };
-      d.kits.theme = kit('shinkansen', { nose: 3.5, height: 2.3, material: 'fabric', window: false });
+      d.kits.body = kit('bullet-train', { nose: 3.5, height: 2.3, build: 'fabric', window: false });
       d.structure.width = 2.5;
       return d;
     },
     expect: [
       { id: 'view', why: 'The long nose rises into the driver’s sight line: most of the forward view is blocked.' },
-      { id: 'axles', why: 'A real Shinkansen car rides on two four-wheel bogies. On a two-axle truck the proportions and overhangs look wrong.' },
       { id: 'effort', why: 'Smooth compound curves are the hardest thing to build; the brief says light effort.' },
       { id: 'fabric-day', why: 'Fabric is the only easy way to get those curves, and fabric looks bad by day.' },
     ],
     nearest: {
-      title: 'Faceted bullet front on a cutaway',
+      title: 'Short bullet nose on a cutaway',
       preset: () => {
         const d = starterDesign('e450');
         d.name = 'Shinkansen, buildable';
         d.brief = { ...d.brief, effort: 2, budget: 2 };
-        d.kits.front = kit('bullet-nose', { length: 0.7, facets: 8, material: 'acm' });
-        d.kits.side = kit('skirts', { material: 'acm' });
+        d.kits.body = kit('bullet-train', { nose: 0.9, height: 0.6, build: 'metal' });
         d.structure.width = 2.5;   // no side tubes: the deck takes the whole width
         d.upper.coverage = 'mid';
         return d;
       },
-      summary: 'An E-450 or Express cutaway with a shorter faceted ACM nose below the eye line, an open roof band for riders, and skirted sides.',
+      summary: 'An E-450 or Express cutaway with a short metal nose below the eye line, slab sides with a stripe, and a train-car band along the roof.',
     },
-    talking: ['Facets read as smooth at night when every crease carries an LED line.', 'A short nose keeps the ground ahead visible: the DMV checks that at inspection.', 'Skirts and a stripe sell the train look more than the nose does.'],
+    talking: ['A short nose keeps the ground ahead visible: the DMV checks that at inspection.', 'The stripe and the roof band sell the train look more than the nose does.', 'Metal over hoops holds its shape by day; fabric doesn’t.'],
   },
   {
     id: 'cement-mixer', title: 'Cement-mixer daiquiri bar',
@@ -46,7 +44,7 @@ export const CARDS = [
       const d = starterDesign('cement-mixer');
       d.name = 'Cement-mixer daiquiri bar, as dreamed';
       d.layout.rear = 'daiquiri';
-      d.kits.side = { id: 'none', p: {} };
+      d.kits.body = { id: 'none', p: {} };
       return d;
     },
     expect: [
@@ -55,20 +53,20 @@ export const CARDS = [
       { id: 'food-safe', why: 'A concrete drum isn’t food-safe: serving drinks from it is a health problem.' },
     ],
     nearest: {
-      title: 'Drum-look cutaway with a real bar',
+      title: 'Rocket cutaway with a real bar',
       preset: () => {
         const d = starterDesign('express');
-        d.name = 'Drum lounge with a daiquiri bar';
-        d.kits.theme = kit('mixer-drum', { material: 'coroplast' });
+        d.name = 'Rocket lounge with a daiquiri bar';
+        d.kits.body = kit('rocket', { build: 'metal' });
         d.structure.width = 2.5;
         d.layout.rear = 'daiquiri';
         d.layout.rearLen = 1.0;
         d.transport.trailer = 'stepdeck';
         return d;
       },
-      summary: 'A cutaway with a light drum-shaped design kit around the lounge, plus a real daiquiri bar in the low rear section.',
+      summary: 'A cutaway with a light rocket hull around the lounge, plus a real daiquiri bar in the low rear section.',
     },
-    talking: ['The drum look is a skin on hoops: a fraction of the weight, and riders sit inside it.', 'Frozen-drink machines pull serious power: plan the generator.', 'Under 25′ keeps full city access.'],
+    talking: ['A hull on hoops is a fraction of a drum’s weight, and riders sit inside it.', 'Frozen-drink machines pull serious power: plan the generator.', 'Under 25′ keeps full city access.'],
   },
   {
     id: 'school-bus', title: 'School bus', template: true,
@@ -77,7 +75,7 @@ export const CARDS = [
       const d = starterDesign('school-bus');
       d.name = 'School bus, as dreamed';
       d.strip.level = 'stock';
-      d.kits.side = { id: 'none', p: {} };
+      d.kits.body = { id: 'none', p: {} };
       d.structure.width = 2.44;
       d.upper.railsRemovable = false;
       d.transport.trailer = 'drive';
@@ -94,7 +92,7 @@ export const CARDS = [
         const d = starterDesign('e450');
         d.name = 'Shuttle bus, buildable';
         d.upper.railsRemovable = true;
-        d.kits.train = kit('train', { cars: 2, style: 'bullet' });
+        d.kits.body = kit('bullet-train', { nose: 0.7 });
         d.structure.width = 2.5;
         d.transport.trailer = 'stepdeck';
         return d;
@@ -110,7 +108,7 @@ export const CARDS = [
       const d = starterDesign('double-decker');
       d.name = 'Double-decker, as dreamed';
       d.strip.level = 'stock';
-      d.kits.side = { id: 'none', p: {} };
+      d.kits.body = { id: 'none', p: {} };
       d.structure.width = 2.55;
       Object.assign(d.upper, { kind: 'stand', headroom: 2.3, railHeight: 1.2, railsRemovable: false });
       d.transport.trailer = 'drive';

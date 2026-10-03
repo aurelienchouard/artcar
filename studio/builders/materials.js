@@ -205,6 +205,9 @@ export function makeV2Materials() {
   MAT.coro = std({ metalness: 0, roughness: 0.7, side: T.DoubleSide, flatShading: true });
   MAT.eva = std({ metalness: 0, roughness: 0.95, side: T.DoubleSide });
   MAT.fabricGlow = std({ color: 0xf2ebe2, roughness: 0.95, emissive: 0xffffff, emissiveIntensity: 0.15, side: T.DoubleSide, transparent: true, opacity: 0.92 });
+  MAT.huePink = std({ color: 0xf27aa9, roughness: 0.6, side: T.DoubleSide });
+  MAT.hueGold = std({ color: 0xe2b043, roughness: 0.5, metalness: 0.2, side: T.DoubleSide });
+  MAT.hueBlue = std({ color: 0x4a9fd8, roughness: 0.6, side: T.DoubleSide });
   MAT.hdpe = std({ color: 0xe8e6df, roughness: 0.6, emissive: 0xffffff, emissiveIntensity: 0.05 });
   MAT.overlay = new T.LineBasicMaterial({ color: 0xffd35a, depthTest: false, transparent: true });
   MAT.rayHit = new T.LineBasicMaterial({ color: 0xff5a4a, transparent: true, opacity: 0.85, depthTest: false });

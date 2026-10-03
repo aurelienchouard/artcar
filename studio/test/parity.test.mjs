@@ -1,4 +1,5 @@
-/* Milestone 1 acceptance: v1 starters (and every v1 stress combo) reproduce their v1 numbers. */
+/* Milestone 1 acceptance: v1 starters (and every v1 stress combo) reproduce their v1 numbers. The model runs in v1
+   mode here (s.v1): it keeps the few behaviors v2 changed on purpose, which have tests of their own. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -13,7 +14,8 @@ import { fromV1, params } from '../engine/state.js';
 const fx = JSON.parse(fs.readFileSync(new URL('./fixtures/v1-parity.json', import.meta.url)));
 for (const c of fx.cases) {
   test(`v1 parity ${c.case}`, () => {
-    const s = params(fromV1(c.state)), C = VEHICLES[s.chassis];
+    // v1 mode keeps the behaviors v2 deliberately changed (front frame, hatch spot, entry steps, speakers, neon)
+    const s = { ...params(fromV1(c.state)), v1: true }, C = VEHICLES[s.chassis];
     const { root, geom: g } = buildCar(s, C);
     const w = buildWeights(g, s, C), rc = riderCount(g, C, w.buildKg), tip = tipping(g, s, C, w.items, rc);
     const i = c.info;

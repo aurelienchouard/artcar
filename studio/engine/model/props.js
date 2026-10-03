@@ -126,7 +126,7 @@ export function buildSpeakerBox(parent, p, deckY) {
     return;
   }
   box(p.w, p.h, p.w, 'speaker', p.x, deckY + p.h / 2, p.z, g);
-  const faceZ = p.z - p.sgn * (p.w / 2 + 0.004);
+  const faceZ = p.faceOut ? p.z + p.sgn * (p.w / 2 + 0.004) : p.z - p.sgn * (p.w / 2 + 0.004);
   const drivers = p.h > 1.2 ? [[0.25, 0.17], [0.58, 0.17], [0.86, 0.07]] : [[0.36, 0.17], [0.8, 0.07]];
   drivers.forEach(([f, r]) => cone(p.x, deckY + p.h * f, faceZ, r));
 }

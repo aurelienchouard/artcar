@@ -16,9 +16,7 @@ export function kitDefaults(id) {
 export function defaultDesign() {
   const d = { schema: SCHEMA, name: 'Untitled art car' };
   for (const [path, f] of Object.entries(FIELDS)) setPath(d, path, clone(f.def));
-  d.kits = Object.fromEntries(KIT_SLOTS.map((slot) => [slot, { id: 'none', p: {} }]));
-  d.kits.side = { id: 'side-tubes', p: kitDefaults('side-tubes') };
-  d.kits.front = { id: 'hood-cover', p: kitDefaults('hood-cover') };
+  d.kits = { body: { id: 'side-tubes', p: kitDefaults('side-tubes') } };
   return d;
 }
 
@@ -29,7 +27,7 @@ export function blankDesign() { return defaultDesign(); }
 const V1_MAP = {
   wheelbase: 'vehicle.wheelbase', track: 'vehicle.track', wheelDia: 'vehicle.wheelDia', frameHeight: 'vehicle.frameHeight',
   length: 'structure.length', width: 'structure.width', bodyFront: 'structure.bodyFront', roofOverhang: 'structure.roofOverhang',
-  posts: 'structure.posts', frontPosts: 'structure.frontPosts',
+  posts: 'structure.posts',
   headroom: 'upper.headroom', roofShade: 'upper.roofShade', roofDeckFront: 'upper.shadeFront', roofDeckRear: 'upper.shadeRear', railHeight: 'upper.railHeight',
   removeRails: 'upper.railsRemovable', removeRoof: 'upper.roofRemovable',
   layout: 'layout.seating', seatDepth: 'layout.seatDepth', standing: 'layout.standing', curtains: 'layout.curtains', curtainsDrawn: 'layout.curtainsDrawn',
@@ -48,6 +46,7 @@ const V1_LADDER = { front: 'ladder-front', rear: 'ladder-rear', none: 'none' };
 export function applyFlat(d, f) {
   for (const [k, path] of Object.entries(V1_MAP)) if (f[k] !== undefined) setPath(d, path, k === 'removeRails' || k === 'removeRoof' ? !!f[k] : f[k]);
   if (f.chassis) d.vehicle.id = f.chassis;
+  if (f.frontPosts !== undefined) d.structure.roofSpan = f.frontPosts ? 'full' : 'driver-back';
   if (f.keepCab !== undefined) d.strip.level = f.keepCab ? 'stock' : 'cut';
   if (f.ladder !== undefined) d.upper.access = V1_LADDER[f.ladder] || 'none';
   if (f.roofDeck !== undefined || f.headroom !== undefined) {
@@ -57,7 +56,7 @@ export function applyFlat(d, f) {
   if (f.roofDeckFront !== undefined || f.roofDeckRear !== undefined) d.upper.coverage = 'mid';
   const tp = {};
   for (const [k, pk] of Object.entries(V1_TUBES)) if (f[k] !== undefined) tp[pk] = f[k];
-  if (Object.keys(tp).length) d.kits.side = { id: 'side-tubes', p: { ...kitDefaults('side-tubes'), ...(d.kits.side.id === 'side-tubes' ? d.kits.side.p : {}), ...tp } };
+  if (Object.keys(tp).length) d.kits.body = { id: 'side-tubes', p: { ...kitDefaults('side-tubes'), ...(d.kits.body.id === 'side-tubes' ? d.kits.body.p : {}), ...tp } };
   if (f.riderTarget !== undefined) { d.brief.ridersMax = f.riderTarget; d.brief.ridersMin = Math.min(d.brief.ridersMin, f.riderTarget); }
   if (f.name !== undefined) d.name = f.name;
   return d;
@@ -73,10 +72,20 @@ export function starterDesign(vehicleId, extra = {}) {
   d.strip.level = C.style === 'cart' ? 'cut' : 'cut';
   d.strip.rops = false;
   applyFlat(d, typicalFlat(C));
-  if (C.style === 'cart' || C.family === 'utility') d.kits.front = { id: 'none', p: {} };
+  // the structure wraps the front of the vehicle and runs to the ideal length for this wheelbase
+  d.structure.bodyFront = C.ba + 0.1;
+  d.structure.length = bodyLimits(params(d), C).ideal;
+  applyRoofSpan(d);
   d.name = `${C.short}, ${d.upper.kind === 'none' ? 'shade only' : 'roof deck'}`;
   for (const [k, v] of Object.entries(extra)) if (v !== undefined) d[k] = v;
   return sanitize(d);
+}
+/* What each roof span means for the upper deck: over the entire length, the deck runs full length; over the driver
+   and the rear (Pingüina), the deck sits in the middle with shade over the driver and at the back. */
+export function applyRoofSpan(d) {
+  if (d.structure.roofSpan === 'full') d.upper.coverage = 'full';
+  else Object.assign(d.upper, { coverage: 'mid', shadeFront: 1.22, shadeRear: 1.22 });
+  return d;
 }
 /* The vehicle's typical build in v1 keys: its catalog defaults, or one derived from its size. */
 export function typicalFlat(C) {
@@ -99,12 +108,11 @@ export function fromV1(flat) {
   const d = defaultDesign();
   d.vehicle.id = C.id;
   applyFlat(d, flat);
-  // v1 always dressed a cut truck front in the tube skin
-  d.kits.front = C.style !== 'cart' && !flat.keepCab ? { id: 'hood-cover', p: kitDefaults('hood-cover') } : { id: 'none', p: {} };
+  // v1 always had side tubes, and dressed a cut truck front in the tube skin: the side-tubes cover does both
   const specDiffers = ['wheelbase', 'track', 'wheelDia', 'frameHeight'].some((k) => flat[k] !== undefined && Math.abs(flat[k] - { wheelbase: C.wheelbase, track: Math.min(C.track.front, C.track.rear), wheelDia: C.tire.diameter, frameHeight: C.frameHeight }[k]) > 0.005)
     && !C.wheelbaseOptions.some((w) => Math.abs(w - flat.wheelbase) < 0.005 && ['track', 'wheelDia', 'frameHeight'].every((k) => flat[k] === undefined || Math.abs(flat[k] - { track: Math.min(C.track.front, C.track.rear), wheelDia: C.tire.diameter, frameHeight: C.frameHeight }[k]) < 0.005));
   d.vehicle.whatIf = specDiffers;
-  return sanitize(d, { keepRaw: true });
+  return sanitize(d, { keepRaw: true });   // keeps v1's body numbers as they were; the studio clamps them once edited
 }
 
 function validField(f, v) {
@@ -144,10 +152,11 @@ export function sanitize(input, opts = {}) {
     const v = getPath(src, path);
     if (v !== undefined && validField(f, v)) setPath(d, path, fixField(f, clone(v)));
   }
-  for (const slot of KIT_SLOTS) {
-    const k = src.kits && src.kits[slot];
-    if (k && (k.id === 'none' || (KITS[k.id] && KITS[k.id].category === slot))) d.kits[slot] = { id: k.id, p: k.id === 'none' ? {} : sanitizeKitParams(k.id, k.p) };
-    else if (src.kits) d.kits[slot] = { id: 'none', p: {} };
+  if (src.structure && src.structure.frontPosts !== undefined && !src.structure.roofSpan) d.structure.roofSpan = src.structure.frontPosts ? 'full' : 'driver-back';   // saved before the roof span choice
+  if (src.kits) {
+    const k = src.kits.body || legacyBody(src.kits);
+    d.kits.body = k && k.id === 'none' ? { id: 'none', p: {} }   // no design at all: only the reality-check dreams use it
+      : k && KITS[k.id] ? { id: k.id, p: sanitizeKitParams(k.id, k.p) } : { id: 'side-tubes', p: kitDefaults('side-tubes') };
   }
   if (!d.vehicle.id) { if (d.brief.ridersMin > d.brief.ridersMax) d.brief.ridersMin = d.brief.ridersMax; return d; }   // blank: nothing to clamp to yet
   const C = vehicleOf(d.vehicle.id);
@@ -156,7 +165,7 @@ export function sanitize(input, opts = {}) {
     d.vehicle.track = Math.min(C.track.front, C.track.rear); d.vehicle.wheelDia = C.tire.diameter; d.vehicle.frameHeight = C.frameHeight;
   }
   if (d.brief.ridersMin > d.brief.ridersMax) d.brief.ridersMin = d.brief.ridersMax;
-  clampBody(d);
+  if (!opts.keepRaw) clampBody(d);
   return d;
 }
 const nearest = (opts, v) => opts.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a), opts[0]);
@@ -168,25 +177,31 @@ export function clampBody(d) {
   for (const k of ['bodyFront', 'length', 'width']) {
     const lim = bodyLimits(params(d), C)[k];
     const v = d.structure[k], nv = clamp(v, lim[0], lim[1]);
-    if (Math.abs(nv - v) > 1e-6) { changes.push({ path: 'structure.' + k, from: v, to: nv, atMax: nv === lim[1] }); d.structure[k] = nv; }
+    if (Math.abs(nv - v) > 1e-6) {
+      changes.push({ path: 'structure.' + k, from: v, to: nv, atMax: nv === lim[1] }); d.structure[k] = nv;
+      if (k === 'bodyFront') d.structure.length += nv - v;   // the front moved: the rear end stays where it was
+    }
   }
   return changes;
 }
 
-/* Active kits after precedence: a theme covers what it covers, then train, then a full shell, then front and side. */
-export function activeKits(d) {
-  const order = ['theme', 'train', 'full', 'front', 'side'];
-  const covered = new Set(), active = [], inactive = [];
-  for (const slot of order) {
-    const k = d.kits[slot];
-    if (!k || k.id === 'none' || !KITS[k.id]) continue;
-    const def = KITS[k.id];
-    const by = [...covered].find((c) => c.slots.includes(slot));
-    if (by) { inactive.push({ slot, id: k.id, reason: `covered by the ${KITS[by.id].name.toLowerCase()}` }); continue; }
-    active.push({ slot, id: k.id, p: k.p, def });
-    covered.add({ id: k.id, slots: (def.covers || []).filter((c) => c !== slot) });
+/* Designs saved before the single design body (front, side, full, train and theme slots): keep the most complete
+   choice, mapping retired kits to the nearest current shape. */
+const LEGACY = { 'pinguina-ribs': ['penguin', { build: 'plywood', finish: 'lattice' }], shinkansen: ['bullet-train', {}], train: ['bullet-train', {}], 'bullet-nose': ['bullet-train', {}],
+  'three-rockets': ['rocket', {}], 'pink-fish': ['pink-fish', {}], 'bio-slug': ['bio-slug', {}], jellyfish: ['bio-slug', {}], anglerfish: ['pink-fish', {}], 'mixer-drum': ['rocket', {}] };
+function legacyBody(kits) {
+  for (const slot of ['theme', 'train', 'full', 'front', 'side']) {
+    const k = kits[slot];
+    if (!k || k.id === 'none') continue;
+    if (k.id === 'side-tubes') return k;
+    if (LEGACY[k.id]) return { id: LEGACY[k.id][0], p: { ...kitDefaults(LEGACY[k.id][0]), ...LEGACY[k.id][1] } };
   }
-  return { active, inactive };
+  return Object.values(kits).every((k) => !k || k.id === 'none') ? { id: 'none' } : null;
+}
+/* The active design body (a list, so the engine can carry more than one later). */
+export function activeKits(d) {
+  const k = d.kits && d.kits.body;
+  return { active: k && KITS[k.id] ? [{ slot: 'body', id: k.id, p: k.p, def: KITS[k.id] }] : [], inactive: [] };
 }
 
 /* Flatten into the model's parameter object (v1 key names plus the v2 additions). */
@@ -199,6 +214,7 @@ export function params(d) {
   s.strip = C.style === 'cart' ? 'cart' : d.strip.level;
   s.keepCab = C.style !== 'cart' && d.strip.level === 'stock';
   s.rops = C.style === 'cart' && !!d.strip.rops; s.bed = C.style !== 'cart' || !!d.strip.bed;
+  s.roofSpan = d.structure.roofSpan; s.frontPosts = d.structure.roofSpan === 'full';
   s.style = d.structure.style; s.material = d.structure.material; s.powerBay = d.structure.powerBay; s.powerBaySize = d.structure.powerBaySize;
   s.roofDeck = d.upper.kind !== 'none';
   s.coverage = d.upper.coverage; s.segments = d.upper.segments; s.hatchSide = d.upper.hatchSide;
@@ -212,7 +228,8 @@ export function params(d) {
   s.hasTubes = !!tubes;
   const tp = tubes ? tubes.p : kitDefaults('side-tubes');
   for (const [k, pk] of Object.entries(V1_TUBES)) s[k] = tp[pk];
-  s.hoodCover = active.find((k) => k.id === 'hood-cover') || null;
+  s.hoodCover = tubes ? { p: { material: 'match' } } : null;   // the side-tubes cover dresses a cut truck's hood and fenders
+  s.speakerFacing = d.lights.speakerFacing; s.skinOff = d.transport.skinOff !== false;
   s.riderTarget = d.brief.ridersMax;
   return s;
 }
@@ -229,9 +246,24 @@ export function switchVehicle(d0, id) {
   if (d.name.startsWith(`${C0.short}, `)) d.name = C.short + d.name.slice(C0.short.length);   // an automatic name follows the vehicle
   d.vehicle.wheelbase = C.wheelbaseOptions.find((w) => Math.abs(w - d0.vehicle.wheelbase) < 0.005) ?? C.wheelbase;
   d.vehicle.track = Math.min(C.track.front, C.track.rear); d.vehicle.wheelDia = C.tire.diameter; d.vehicle.frameHeight = C.frameHeight;
-  const changes = clampBody(d);
+  // the structure keeps its reach past the bumper, and a body at its ideal length stays at the ideal for the new chassis
+  const atIdeal = Math.abs(d0.structure.length - bodyLimits(params(d0), C0).ideal) < 0.06;
+  d.structure.bodyFront = C.ba + (d0.structure.bodyFront - C0.ba);
+  if (atIdeal) d.structure.length = bodyLimits(params(d), C).ideal;
+  const changes = clampBody(d).filter((c) => c.path !== 'structure.bodyFront');
+  if (atIdeal && Math.abs(d.structure.length - d0.structure.length) > 0.01) changes.unshift({ path: 'structure.length', from: d0.structure.length, to: d.structure.length, ideal: true });
   if (Math.abs(d.vehicle.wheelbase - d0.vehicle.wheelbase) > 0.005) changes.unshift({ path: 'vehicle.wheelbase', from: d0.vehicle.wheelbase, to: d.vehicle.wheelbase });
   return { design: sanitize(d), changes };
+}
+/* Knock-on changes of a structure edit: the front reach keeps the rear end where it is, a new wheelbase keeps a body
+   at its ideal length, and the roof span sets the upper deck's defaults. Returns the design. */
+export function structureEffects(d0, d, path) {
+  const C = vehicleOf(d.vehicle.id);
+  if (!C || !d.vehicle.id) return d;
+  if (path === 'structure.bodyFront') d.structure.length += d.structure.bodyFront - d0.structure.bodyFront;
+  if (path === 'vehicle.wheelbase' && Math.abs(d0.structure.length - bodyLimits(params(d0), C).ideal) < 0.06) d.structure.length = bodyLimits(params(d), C).ideal;
+  if (path === 'structure.roofSpan') applyRoofSpan(d);
+  return d;
 }
 
 /* Headroom for a low bunk: keep the deck floor under the DMV's 84″ line where the chassis allows it. */

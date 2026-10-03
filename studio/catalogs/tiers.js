@@ -18,4 +18,4 @@ export const POINTS = {
   generator: [1, 1],
   leds: [1, 1], neon: [1, 0], projectors: [1, 0],
 };
-export const STEP_OF = { vehicle: 1, strip: 2, structure: 3, upper: 4, layout: 5, design: 6, lights: 7 };
+export const STEP_OF = { vehicle: 1, strip: 2, structure: 3, upper: 4, layout: 5, design: 6, lights: 7, power: 8, transport: 9 };

@@ -4,15 +4,16 @@ import json, sys
 from v2_common import open_studio, settle, sync_playwright
 COMBOS = [
     {'strip.level': 'stock', 'upper.kind': 'none', 'structure.style': 'deck-posts'},
-    {'strip.level': 'cut', 'upper.kind': 'stand', 'upper.coverage': 'full', 'upper.access': 'ladder-rear', 'layout.seating': 'ring'},
+    {'strip.level': 'cut', 'upper.kind': 'stand', 'structure.roofSpan': 'full', 'upper.coverage': 'full', 'upper.access': 'ladder-rear', 'layout.seating': 'ring', 'layout.dj': 'upper'},
     {'strip.level': 'rails', 'structure.style': 'cage', 'upper.kind': 'stand', 'upper.access': 'stairs', 'layout.dj': 'front', 'layout.bar': 'side'},
-    {'structure.style': 'barge', 'upper.kind': 'none', 'layout.seating': 'platform', 'lights.speakers': 'towers', 'layout.storage': 'rear'},
-    {'upper.kind': 'bunk', 'upper.coverage': 'modular', 'upper.segments': [{'kind': 'deck', 'len': 2}, {'kind': 'open', 'len': 1}, {'kind': 'deck', 'len': 2}], 'upper.hatchSide': 'driver'},
-    {'structure.material': 'alu', 'structure.powerBay': 'under', 'structure.powerBaySize': 'large', 'lights.batteryKwh': 30, 'layout.rear': 'daiquiri'},
-    {'kits.side': 'skirts', 'kits.front': 'bullet-nose', 'transport.trailer': 'rollback'},
-    {'kits.theme': 'centipede', 'transport.trailer': 'flatbed'},
-    {'kits.full': 'pink-fish', 'transport.trailer': 'equipment'},
-    {'kits.train': 'train', 'view.units': 'metric', 'view.mood': 'day'},
+    {'structure.style': 'barge', 'upper.kind': 'none', 'layout.seating': 'platform', 'lights.speakers': 'towers', 'lights.speakerFacing': 'playa', 'layout.storage': 'rear'},
+    {'upper.kind': 'bunk', 'upper.coverage': 'modular', 'upper.segments': [{'kind': 'deck', 'len': 2}, {'kind': 'open', 'len': 1}, {'kind': 'deck', 'len': 2}], 'upper.hatchSide': 'driver', 'layout.dj': 'side'},
+    {'structure.material': 'alu', 'structure.powerBay': 'under', 'lights.power': 'battery', 'layout.rear': 'daiquiri', 'structure.bodyFront': 9, 'structure.length': 99},
+    {'kits.body': 'rocket', 'kits.body.p.build': 'plywood', 'transport.trailer': 'rollback', 'transport.skinOff': False},
+    {'kits.body': 'penguin', 'transport.trailer': 'flatbed', 'layout.secondStepPos': -1},
+    {'kits.body': 'pink-fish', 'transport.trailer': 'equipment', 'structure.roofSpan': 'full'},
+    {'kits.body': 'bullet-train', 'view.units': 'metric', 'view.mood': 'night', 'lights.speakerFacing': 'playa'},
+    {'kits.body': 'bio-slug', 'structure.length': 0, 'layout.secondStepPos': 1},
 ]
 VIEWS = ['hero', 'left', 'right', 'front', 'rear', 'top', 'lounge', 'roof', 'cockpit', 'frame', 'packed']
 with sync_playwright() as p:
@@ -30,7 +31,7 @@ with sync_playwright() as p:
         print(vid, 'ok', pg.evaluate("(()=>{const E=window.__studio.store.E; return [E.rc.riders, Math.round(E.w.buildKg), +E.tip.ssf.toFixed(2), E.red.join(',')]})()"))
     for st in pg.evaluate('window.__studio.starters'):
         pg.evaluate(f"window.__studio.loadStarter('{st}')"); settle(pg)
-        for i in range(9): pg.evaluate(f"window.__studio.goStep({i})")
+        for i in range(10): pg.evaluate(f"window.__studio.goStep({i})")
         for v in VIEWS: pg.evaluate(f"window.__studio.setView('{v}', true)")
         print('starter', st, 'steps and views ok')
     for card in ['shinkansen', 'cement-mixer', 'school-bus', 'double-decker']:

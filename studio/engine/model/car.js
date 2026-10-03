@@ -151,7 +151,8 @@ export function buildCar(s, C) {
   let hatch = null, lad = null;
   if (ladderFront) {
     const zL = hs * (floorW / 2 - 0.42);
-    const xh = X1 - 0.48;
+    // the hatch sits just behind the driver even when the deck runs over the whole length
+    const xh = s.v1 ? X1 - 0.48 : Math.min(X1 - 0.48, (hasCab ? cabBackX - 0.1 : driverX - 0.42) - 0.04);
     const floorAt = (x) => (x >= xfs ? frontFloorY : deckY);
     const tryDir = (dir) => {
       const cross = xh + dir * 0.15;
@@ -207,10 +208,27 @@ export function buildCar(s, C) {
     const half = Math.max(0, loungeLen / 2 - 0.85);
     const st = stairFor({ w: 1.0, sgn, topY: deckY, zIn: edge - depth - 0.05, kind: 'deck' });
     let x = (lx0 + lx1) / 2 + clamp(s.secondStepPos, -1, 1) * half;
-    const near = steps.find((t) => t.sgn === sgn && Math.abs(t.x - x) < 1.0);
-    if (near) x = near.x - 1.0;
-    if (lad && sgn > 0 && Math.abs(lad.xb - x) < 1.1) x = lad.xb - 1.15;
-    st.x = clamp(clearWheels(x, st.w, st.zInner), lx0 + 0.5, lx1 - 0.5);
+    if (s.v1) {
+      const near = steps.find((t) => t.sgn === sgn && Math.abs(t.x - x) < 1.0);
+      if (near) x = near.x - 1.0;
+      if (lad && sgn > 0 && Math.abs(lad.xb - x) < 1.1) x = lad.xb - 1.15;
+      st.x = clamp(clearWheels(x, st.w, st.zInner), lx0 + 0.5, lx1 - 0.5);
+    } else {
+      // dodge a wheel, the ladder foot or the driver's step by moving to whichever side is nearer, inside the lounge
+      const lo = lx0 + 0.5, hi = lx1 - 0.5, blocks = [];
+      for (const z of wheelZones) if (st.zInner < z.zOut) blocks.push([z.x0 - 0.05, z.x1 + 0.05]);
+      if (lad && sgn > 0) blocks.push([lad.xb - 0.6, lad.xb + 0.6]);
+      for (const t of steps) if (t.sgn === sgn) blocks.push([t.x - t.w / 2 - 0.5, t.x + t.w / 2 + 0.5]);
+      // the slider runs along the places the step can actually go, so every position moves it
+      let free = hi > lo ? [[lo, hi]] : [[(lo + hi) / 2, (lo + hi) / 2]];
+      for (const [a, b] of blocks) free = intervalsMinus(free, a - st.w / 2, b + st.w / 2);
+      const total = free.reduce((acc, [a, b]) => acc + (b - a), 0);
+      if (total > 1e-3) {
+        let rest = (clamp(s.secondStepPos, -1, 1) + 1) / 2 * total;
+        st.x = free[free.length - 1][1];
+        for (const [a, b] of free) { if (rest <= b - a) { st.x = a + rest; break; } rest -= b - a; }
+      } else st.x = clamp(x, lo, hi);
+    }
     steps.push(st);
   }
   const stepHoles = steps.map((st) => (st.sgn > 0 ? [st.x - st.w / 2, st.x + st.w / 2, st.zInner, W] : [st.x - st.w / 2, st.x + st.w / 2, -W, -st.zInner]));
@@ -220,11 +238,16 @@ export function buildCar(s, C) {
   /* speakers: hung high at the lounge corners, or towers standing at the back of the lounge */
   const pz0 = floorW / 2 - 0.04;
   const spk = [];
+  const playa = s.speakerFacing === 'playa';
   if (s.speakers === 'corners' && loungeLen > 1.2) for (const [x, sx] of [[lx0 + 0.25, -1], [lx1 - 0.25, 1]]) {
-    spk.push({ x, z: pz0 + 0.25, h: 0.55, w: 0.36, sgn: 1, sx, hung: true, out: true });
-    spk.push({ x: x - sx * 0.1, z: -(pz0 - 0.16), h: 0.3, w: 0.24, sgn: -1, sx, hung: true, out: false });
+    if (s.v1) {
+      spk.push({ x, z: pz0 + 0.25, h: 0.55, w: 0.36, sgn: 1, sx, hung: true, out: true });
+      spk.push({ x: x - sx * 0.1, z: -(pz0 - 0.16), h: 0.3, w: 0.24, sgn: -1, sx, hung: true, out: false });
+    } else for (const sgn of [-1, 1]) {   // all four face the same way: in at the riders, or out at the crowd
+      spk.push(playa ? { x, z: sgn * (pz0 + 0.25), h: 0.55, w: 0.36, sgn, sx, hung: true, out: true } : { x: x - sx * 0.08, z: sgn * (pz0 - 0.18), h: 0.42, w: 0.3, sgn, sx, hung: true, out: false });
+    }
   }
-  if (s.speakers === 'towers' && loungeLen > 1.2) for (const sgn of [-1, 1]) spk.push({ x: lx0 + 0.3, z: sgn * (edge - 0.22), h: Math.min(1.75, s.headroom - 0.2), w: 0.5, sgn });
+  if (s.speakers === 'towers' && loungeLen > 1.2) for (const sgn of [-1, 1]) spk.push({ x: lx0 + 0.3, z: sgn * (edge - 0.22), h: Math.min(1.75, s.headroom - 0.2), w: 0.5, sgn, faceOut: !s.v1 && playa });
   spk.filter((p) => !p.hung).forEach((p) => loungeRects.push([p.x - p.w / 2 - 0.04, p.x + p.w / 2 + 0.04, p.z - p.w / 2 - 0.04, p.z + p.w / 2 + 0.04]));
 
   /* decks, with wheel-well humps where a floor sits below the tire tops. On carts the deck rides on the vehicle's own bed:
@@ -257,16 +280,59 @@ export function buildCar(s, C) {
       deckSlab([a, xbF - 0.055, -floorW / 2, -cw], deckY, slabT);
     }
   }
-  /* steel deck frame: perimeter and joists (visible in the frame view) */
-  const deckFrame = (x0, x1, y) => {
+  /* steel deck frame: perimeter and joists (visible in the frame view). The v2 frame steps up over the wheels, turns
+     its joists into outriggers around the engine or cab, and runs a crossmember ahead of the front bumper. */
+  const yOver = cutY + 0.03;
+  const wheelAt = (x, z, y) => y < cutY && wheelZones.some((w) => x > w.x0 - 0.02 && x < w.x1 + 0.02 && Math.abs(z) > w.zIn - 0.03 && Math.abs(z) < w.zOut + 0.03);
+  const bumperX = fa + C.ba;
+  const frontOb = s.v1 ? null : isCart ? { x0: bumperX - 0.66, x1: bumperX + 0.005, z: cab.width / 2 + 0.04 }
+    : conv ? { x0: (hasCab ? cabBackX : cabFrontX) - 0.02, x1: bumperX + 0.005, z: cab.width / 2 + 0.04, hood: true }
+    : hasCab ? { x0: cabBackX - 0.02, x1: bumperX + 0.005, z: cab.width / 2 + 0.04 } : null;
+  const sideMember = (x0, x1, y, z) => {
+    if (s.v1) { F(box(x1 - x0, 0.05, 0.05, 'frame', (x0 + x1) / 2, y, z, deckG, false)); return x1 - x0; }
+    const cuts = [x0, x1];
+    for (const w of wheelZones) if (y < cutY && Math.abs(z) > w.zIn - 0.03 && Math.abs(z) < w.zOut + 0.03) cuts.push(clamp(w.x0 - 0.02, x0, x1), clamp(w.x1 + 0.02, x0, x1));
+    const xs = [...new Set(cuts)].sort((a, b) => a - b);
+    let len = 0, prevY = null;
+    for (let i = 0; i < xs.length - 1; i++) {
+      const a = xs[i], b = xs[i + 1];
+      if (b - a < 0.01) continue;
+      const yy = wheelAt((a + b) / 2, z, y) ? yOver : y;
+      F(box(b - a, 0.05, 0.05, 'frame', (a + b) / 2, yy, z, deckG, false)); len += b - a;
+      if (prevY != null && Math.abs(prevY - yy) > 0.01) { F(box(0.05, Math.abs(prevY - yy) + 0.05, 0.05, 'frame', a, (prevY + yy) / 2, z, deckG, false)); len += Math.abs(prevY - yy); }
+      prevY = yy;
+    }
+    return len;
+  };
+  const deckFrame = (x0, x1, y, ob) => {
     if (x1 - x0 < 0.1) return;
-    for (const sz of [-1, 1]) F(box(x1 - x0, 0.05, 0.05, 'frame', (x0 + x1) / 2, y, sz * (floorW / 2 - 0.03), deckG, false));
+    let len = 0;
+    for (const sz of [-1, 1]) len += sideMember(x0, x1, y, sz * (floorW / 2 - 0.03));
     const n = Math.max(1, Math.round((x1 - x0) / 0.6));
-    for (let i = 0; i <= n; i++) F(box(0.05, 0.05, floorW - 0.06, 'frame', x0 + 0.04 + (x1 - x0 - 0.08) * i / n, y, 0, deckG, false));
-    bom.deckFrame += 2 * (x1 - x0) + (n + 1) * floorW;
+    for (let i = 0; i <= n; i++) {
+      const x = x0 + 0.04 + (x1 - x0 - 0.08) * i / n;
+      const yy = !s.v1 && wheelZones.some((w) => y < cutY && x > w.x0 - 0.02 && x < w.x1 + 0.02 && floorW / 2 > w.zIn - 0.03) ? yOver : y;
+      if (ob && x > ob.x0 && x < ob.x1) {   // outriggers stop short of the engine or cab
+        const w = floorW / 2 - 0.03 - ob.z;
+        if (w > 0.05) for (const sz of [-1, 1]) F(box(0.05, 0.05, w, 'frame', x, yy, sz * (ob.z + w / 2), deckG, false));
+        len += 2 * Math.max(0, w);
+      } else { F(box(0.05, 0.05, floorW - 0.06, 'frame', x, yy, 0, deckG, false)); len += floorW; }
+    }
+    bom.deckFrame += len;
   };
   deckFrame(xbR, xfs, deckY - slabT - 0.025);
-  deckFrame(xfs, xbF, frontFloorY - (openFront ? 0.06 : slabT) - 0.025);
+  const frontY = frontFloorY - (openFront ? 0.06 : slabT) - 0.025;
+  deckFrame(xfs, xbF, frontY, frontOb);
+  if (frontOb && frontOb.hood) {   // hoops arch over the hood so a skin can cover the engine; the front one stands ahead of the grille
+    const yTop = cab.hoodTop + dh + 0.12, zh = Math.min(frontOb.z, floorW / 2 - 0.03);
+    const xs = [bumperX - 0.04, (Math.max(cabFrontX, frontOb.x0) + bumperX) / 2].filter((x) => x > xfs + 0.2);
+    for (const x of xs) {
+      const y0 = wheelZones.some((w) => x > w.x0 - 0.02 && x < w.x1 + 0.02) ? yOver : frontY;
+      for (const sz of [-1, 1]) F(box(0.05, yTop - y0, 0.05, 'frame', x, (yTop + y0) / 2, sz * zh, deckG, false));
+      F(box(0.05, 0.05, 2 * zh + 0.05, 'frame', x, yTop, 0, deckG, false));
+      bom.deckFrame += 2 * (yTop - y0) + 2 * zh;
+    }
+  }
   const subY0 = s.frameHeight - 0.02, subY1 = deckY - slabT;
   if (subY1 - subY0 > 0.03) {   // sub-frame: two rails on the chassis with crossmembers
     const sl = Math.max(0.2, xfs - xbR - 0.3), sw = Math.max(0.4, Math.min(floorW - 0.2, s.track - 0.3)), sx = (xbR + xfs) / 2, sy = (subY0 + subY1) / 2, sh = subY1 - subY0;
@@ -369,6 +435,7 @@ export function buildCar(s, C) {
     xbF, xbR, mid, vehFront, W, D, floorW, deckY, roofBottom, roofTop, hasRoof, decks, lx0, lx1, xfs, loungeLen, steps,
     eye: [driverX + 0.02, seatY + 0.72, driverZ], driverX, seatY, cabFloor, conv, hoodTop: conv ? cab.hoodTop + dh : cabFloor + 0.45,
     cutY, wheelZones, groundClear: rule('kitGroundClear'), tubeY, rx0, zR, ladderRear, isCart, track: s.track,
+    bumperX: fa + C.ba, cabFrontX, hasCab, roofW, rx1, frontFloorY,
   };
   const kitResults = buildKits(designG, (s.kits || []).filter((k) => !k.def.builtin), kitCar);
   const prunedParts = pruneInEnvelope(designG, wheelZones, cutY);
@@ -433,7 +500,8 @@ export function buildCar(s, C) {
         if (g) x = g.x - g.w / 2 - 0.06;   // a post landing in a step opening moves to just behind it
         if (x < xbR + 0.03 || placed.some((p) => Math.abs(p - x) < 0.3)) continue;
         placed.push(x);
-        F(box(0.08, s.headroom, 0.08, 'frame', x, deckY + s.headroom / 2, sgn * pz, postG));
+        const py0 = !s.v1 && openFront && x > xfs ? frontY : deckY;   // posts out front stand on the front frame
+        F(box(0.08, roofBottom - py0, 0.08, 'frame', x, (roofBottom + py0) / 2, sgn * pz, postG));
         postCount++;
       }
       placedBySide[sgn] = placed.sort((p, q) => p - q);
@@ -455,9 +523,11 @@ export function buildCar(s, C) {
         }
       }
       const fx = xbF - 0.06;
+      if (s.v1 || s.frontPosts) {
       // front hoop: a header under the roof and a low bar below the dash, so the driver's sight line stays open
       F(box(0.05, 0.05, floorW - 0.08, 'frame', fx, roofBottom - 0.2, 0, postG)); bom.cage += floorW;
       F(box(0.05, 0.05, floorW - 0.08, 'frame', fx, frontFloorY + 0.45, 0, postG)); bom.cage += floorW;
+      }
     }
     // roof frame: perimeter and joists every 2 ft
     const rfY = roofTop - 0.1;
@@ -543,24 +613,43 @@ export function buildCar(s, C) {
   }
 
   /* zones placed in the lounge: DJ booth, bar counter, storage lockers. Each takes floor that seats and dancers lose. */
+  /* zones: DJ booth, bar counter, storage. Each takes floor that seats and dancers lose. */
+  const zoneBox = (name, rect, h, kg, build, y0 = deckY, parent = layoutG, onFloor = true) => {
+    const [x0, x1, z0, z1] = rect;
+    if (onFloor) loungeRects.push(rect);
+    const g = group(name); parent.add(g);
+    box(x1 - x0, h, z1 - z0, 'panel', (x0 + x1) / 2, y0 + h / 2, (z0 + z1) / 2, g);
+    box(x1 - x0 + 0.04, 0.04, z1 - z0 + 0.04, 'plinth', (x0 + x1) / 2, y0 + h + 0.02, (z0 + z1) / 2, g);
+    if (build) build(g, x0, x1, z0, z1, y0 + h + 0.04);
+    extraMass.push({ cat: 'zones', kg, y: y0 + h / 2, label: name });
+    zones.push({ name, rect, kg, level: y0 > deckY + 0.5 ? 'upper' : 'lower' });
+  };
+  /* DJ decks on a booth: along x (facing the lounge ends) or along z (facing out a side). */
+  const djTop = (face) => (g, a, b, c, d, top) => {
+    const along = face === 'x+' || face === 'x-';
+    for (const k of [-0.45, 0.45]) { const t = mesh(geo('Cylinder', 0.17, 0.17, 0.03, 28), 'grille', g); t.position.set(along ? (a + b) / 2 : (a + b) / 2 + k, top + 0.02, along ? k : (c + d) / 2); }
+    box(along ? 0.3 : 0.35, 0.06, along ? 0.35 : 0.3, 'speaker', (a + b) / 2, top + 0.03, (c + d) / 2, g);
+    if (along) box(0.02, 0.03, d - c, 'led', face === 'x+' ? b + 0.01 : a - 0.01, top - 0.08, (c + d) / 2, g, false);
+    else box(b - a, 0.03, 0.02, 'led', (a + b) / 2, top - 0.08, face === 'z+' ? d + 0.01 : c - 0.01, g, false);
+  };
   if (loungeLen > 1.6) {
-    const zoneBox = (name, rect, h, kg, build) => {
-      const [x0, x1, z0, z1] = rect;
-      loungeRects.push(rect);
-      const g = group(name); layoutG.add(g);
-      box(x1 - x0, h, z1 - z0, 'panel', (x0 + x1) / 2, deckY + h / 2, (z0 + z1) / 2, g);
-      box(x1 - x0 + 0.04, 0.04, z1 - z0 + 0.04, 'plinth', (x0 + x1) / 2, deckY + h + 0.02, (z0 + z1) / 2, g);
-      if (build) build(g, x0, x1, z0, z1, deckY + h + 0.04);
-      extraMass.push({ cat: 'zones', kg, y: deckY + h / 2, label: name });
-      zones.push({ name, rect, kg });
-    };
-    if (s.dj && s.dj !== 'none') {
+    if (s.dj === 'front' || s.dj === 'rear') {
       const x0 = s.dj === 'front' ? lx1 - 0.75 : lx0 + 0.05;
-      zoneBox('DJ booth', [x0, x0 + 0.7, -0.8, 0.8], 0.95, 70, (g, a, b, c, d, top) => {
-        for (const z of [-0.45, 0.45]) { const t = mesh(geo('Cylinder', 0.17, 0.17, 0.03, 28), 'grille', g); t.position.set((a + b) / 2, top + 0.02, z); }
-        box(0.3, 0.06, 0.35, 'speaker', (a + b) / 2, top + 0.03, 0, g);
-        box(0.02, 0.03, d - c, 'led', s.dj === 'front' ? a - 0.01 : b + 0.01, top - 0.08, 0, g, false);
-      });
+      zoneBox('DJ booth', [x0, x0 + 0.7, -0.8, 0.8], 0.95, 70, djTop(s.dj === 'front' ? 'x-' : 'x+'));
+    }
+    if (s.dj === 'side') {   // on the passenger side at the deck edge, the DJ facing out at the crowd
+      const want = (lx0 + lx1) / 2 + loungeLen * 0.15;
+      const blocks = steps.filter((t) => t.sgn > 0).map((t) => [t.x - t.w / 2 - 0.1, t.x + t.w / 2 + 0.1]);
+      if (lad && hs > 0) blocks.push([lad.xb - 0.6, lad.xb + 0.6]);
+      for (const len of [1.3, 1.0]) {   // a full booth if it fits beside the entries, else a compact one
+        const lo = lx0 + len / 2 + 0.1, hi = lx1 - len / 2 - 0.1;
+        const free = (c) => !blocks.some(([a, b]) => c + len / 2 > a && c - len / 2 < b);
+        const cands = [want, lo, hi, ...blocks.flatMap(([a, b]) => [a - len / 2 - 0.01, b + len / 2 + 0.01])].map((c) => clamp(c, lo, hi)).filter(free);
+        if (hi <= lo || !cands.length) continue;
+        const xc = cands.reduce((m, c) => (Math.abs(c - want) < Math.abs(m - want) ? c : m), cands[0]);
+        zoneBox('DJ booth', [xc - len / 2, xc + len / 2, edge - 0.62, edge - 0.02], 0.95, 70, djTop('z+'));
+        break;
+      }
     }
     if (s.bar && s.bar !== 'none') {
       const len = Math.max(1.2, loungeLen * 0.5), xm = (lx0 + lx1) / 2;
@@ -571,7 +660,7 @@ export function buildCar(s, C) {
     }
     if (s.storage && s.storage !== 'none') {
       const x0 = s.storage === 'front' ? lx1 - 0.58 : lx0 + 0.03;
-      zoneBox('Storage lockers', [x0, x0 + 0.55, -edge + 0.02, edge - 0.02], 1.1, 45, (g, a, b, c, d) => {
+      zoneBox('Storage', [x0, x0 + 0.55, -edge + 0.02, edge - 0.02], 1.1, 45, (g, a, b, c, d) => {
         const n = Math.max(2, Math.round((d - c) / 0.5));
         for (let i = 1; i < n; i++) box(0.012, 1.0, 0.012, 'frame', s.storage === 'front' ? a - 0.007 : b + 0.007, deckY + 0.55, c + (d - c) * i / n, g, false);
       });
@@ -672,6 +761,10 @@ export function buildCar(s, C) {
     bom.rail += len * bars.length + (n + 1) * h;
     railRun += len;
   };
+  /* a DJ booth up top, on the passenger side of the main deck, facing the crowd */
+  const djUp = s.roofDeck && s.dj === 'upper' && mainDeck && mainDeck.X1 - mainDeck.X0 > 1.6
+    ? (() => { const xc = (mainDeck.X0 + mainDeck.X1) / 2, len = Math.min(1.3, mainDeck.X1 - mainDeck.X0 - 0.4); return [xc - len / 2, xc + len / 2, rzE - 0.68, rzE - 0.08]; })() : null;
+  if (djUp) zoneBox('DJ booth', djUp, 0.95, 70, djTop('z+'), dTop, roofSeatG, false);
   if (s.roofDeck) {
     railTop = dTop + s.railHeight;
     const rl = (p0, p1, h = s.railHeight) => railLine(p0, p1, h, dTop, railsG);
@@ -687,6 +780,7 @@ export function buildCar(s, C) {
       const obstacles = [];
       if (hatch && hatch[1] > dk.dx0 && hatch[0] < dk.dx1) obstacles.push([hatch[0] - 0.2, hatch[1] + 0.2, hatch[2] - 0.2, hatch[3] + 0.2]);
       if (ladderRear && isRear) obstacles.push([x0 - 0.1, x0 + 0.9, zR - 0.5, zR + 0.5]);
+      if (djUp && dk === mainDeck) obstacles.push([djUp[0] - 0.5, djUp[1] + 0.5, djUp[2] - 0.6, djUp[3] + 0.1]);
       const roofSeatRects = [];
       if (s.roofSeating === 'pillows') {
         const res = pillowSeats(roofSeatG, ridersRoofG, x0, x1, rzE, dTop, obstacles, skin);
@@ -737,7 +831,7 @@ export function buildCar(s, C) {
       hatchRail();
     }
     /* lightning bolt neon, hanging from the top of the front rail, facing forward */
-    if (s.neon) {
+    if (s.neon && s.v1) {   // v1 only: v2 dropped the lightning bolt
       const h = clamp(s.neonSize, 0.2, s.railHeight - 0.03), w = h * 0.39;
       const topY = railTop - 0.035, xs = X1 + 0.055;
       const P = (u, v) => new Vec3(xs, topY - (1 - v) * h, (0.5 - u) * w);
@@ -841,10 +935,11 @@ export function buildCar(s, C) {
     deckFrontCapped: !!(s.roofDeck && frontDeck && frontDeck.dx1 < dx1Want - 0.01), wheelR: wr, wheelbase: wb, cockpitCam, wheelZones, cutY,
     archInfo: archCut.map((a) => ({ front: a.zone.front, split: a.split, removed: a.removed, n: nSides })), pokeOut,
     roofDeckLen: s.roofDeck ? dx1 - dx0 : 0, railBaseY: roofTop,
-    neonH: s.roofDeck && s.neon ? clamp(s.neonSize, 0.2, s.railHeight - 0.03) : 0,
+    neonH: s.roofDeck && s.neon && s.v1 ? clamp(s.neonSize, 0.2, s.railHeight - 0.03) : 0,
     tooNarrow: hasCab && floorW < cab.width + (C.family === 'reality-check' ? -0.15 : 0.08),
     daiquiri: s.rearStyle === 'daiquiri' && rearLen > 0,
     kitResults, builtinBom, kitCar, prunedParts, hasTubes, tubeGroup: tubesG, hasRoof, barge, structStyle: style, segs, decks, stair, stairsFailed, hatch, dTop, deckT: DECK_T, railRun, puckCount, projectorCount, extraMass, zones, powerY, bayIn,
+    steps: steps.map((t) => ({ x: t.x, w: t.w, sgn: t.sgn, kind: t.kind })), ladderFoot: lad ? { x: lad.xb, z: lad.zL } : null,
     lift, edge, hs, xfs, xrs, xPostF, rx0, rx1, cabFloor, cabFrontX, cabBackX, frontFloorY, eye: [driverX + 0.02, seatY + 0.72, driverZ],
   };
   return { root, wheels, geom };

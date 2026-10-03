@@ -43,7 +43,7 @@ export function validateCatalogs() {
   for (const [id, k] of Object.entries(KITS)) {
     const w = `kit ${id}`;
     req(k.id === id, w, 'id mismatch');
-    req(['front', 'side', 'full', 'train', 'theme'].includes(k.category), w, 'category');
+    req(['cover', 'full'].includes(k.category), w, 'category');
     for (const f of ['name', 'description', 'riderOpenings', 'explainer']) req(str(k[f]), w, `${f} required`);
     req(Array.isArray(k.materials) && k.materials.length, w, 'materials list required');
     req(['face-cut', 'outboard', 'skirt-above', 'none-needed'].includes(k.wheelClearance), w, 'wheelClearance');

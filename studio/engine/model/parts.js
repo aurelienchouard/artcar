@@ -13,6 +13,8 @@ export function makeToolbox(car, parent, acc) {
   const inWheel = (x, y, z) => car.wheelZones.some((w) => y < car.cutY && x > w.x0 && x < w.x1 && Math.abs(z) > w.zIn && Math.abs(z) < w.zOut);
   const inBoxes = (p, boxes) => boxes.some((b) => p[0] > b[0] && p[0] < b[1] && p[1] > b[2] && p[1] < b[3] && p[2] > b[4] && p[2] < b[5]);
   const eye = car.eye;
+  /* hug: parts that sit just over the stock hood or cowl stay even in the sight line (the hood blocks it already). */
+  const hugs = (p, hugY) => hugY != null && p[1] <= hugY + 0.08;
   const inDriverCone = (p) => {
     const dx = p[0] - eye[0], dy = p[1] - eye[1], dz = p[2] - eye[2];
     if (dx < 0.25) return false;
@@ -77,7 +79,7 @@ export function makeToolbox(car, parent, acc) {
           continue;
         }
         if (inBoxes(c, open)) continue;
-        if (spec.driverWindow && inDriverCone(c)) continue;
+        if (spec.driverWindow && inDriverCone(c) && !hugs(c, spec.hugY)) continue;
         const a = tri(q[0], q[1], q[2]) + tri(q[0], q[2], q[3]);
         if (a < 1e-6) continue;
         const b = pos.length / 3;
@@ -85,64 +87,68 @@ export function makeToolbox(car, parent, acc) {
         idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
         area += a;
       }
-      if (pos.length) {
-        const node = mesh(meshGeo(pos, idx), renderMat(spec.material), spec.parent || parent);
+      if (pos.length && spec.material) {   // no material: ribs only (an open lattice)
+        const node = mesh(meshGeo(pos, idx), spec.render || renderMat(spec.material), spec.parent || parent);
         node.name = spec.name || 'Shell'; node.userData.kitSkin = true;
+        if (spec.hugY != null) node.userData.hugY = spec.hugY;
         if (spec.uv) node.geo.uvScale = spec.uv;
       }
-      bookArea(spec.material, area * (spec.layers || 1));
+      if (spec.material) bookArea(spec.material, area * (spec.layers || 1));
       // hoops or ribs at intervals, and stringers along the length
       if (spec.ribs) {
         const every = spec.ribs.every || 0.6, k = Math.max(1, Math.round((spec.x1 - spec.x0) / every));
         for (let r = 0; r <= k; r++) {
           const i = Math.round(r * n / k), row = pts[i];
-          T.band(row, spec.ribs, spec.openings, spec.driverWindow);
+          T.band(row, spec.ribs, spec.openings, spec.driverWindow, spec.hugY);
         }
       }
       if (spec.stringers) for (const jj of spec.stringers.at) {
         const j = Math.round(jj * m);
         const line = pts.map((row) => row[j]);
-        T.polyline(line, spec.stringers.r || 0.015, spec.stringers.material || 'conduit', spec.openings, spec.driverWindow);
+        T.polyline(line, spec.stringers.r || 0.015, spec.stringers.material || 'conduit', spec.openings, spec.driverWindow, false, spec.hugY);
       }
       return { area, cut, pts };
     },
     /* A rib or hoop following a polyline of points: plywood ribs as flat bands, everything else as round tube. */
-    band(row, rib, openings = [], driverWindow = false) {
+    band(row, rib, openings = [], driverWindow = false, hugY = null) {
       if (rib.material === 'plywood') {
         const w = rib.width || 0.09, th = 0.018, pos = [], idx = [];
         const cx = row.reduce((a, p) => a + p[1], 0) / row.length, cz = row.reduce((a, p) => a + p[2], 0) / row.length;
         let area = 0;
         for (let j = 0; j < row.length - 1; j++) {
           const p = row[j], q = row[j + 1];
-          if ([p, q].some((r) => inWheel(...r)) || inBoxes(p, openings) || inBoxes(q, openings) || (driverWindow && inDriverCone(p))) continue;
           const inward = (r) => { const dy = cx - r[1], dz = cz - r[2], l = Math.hypot(dy, dz) || 1; return [r[0], r[1] + dy / l * w, r[2] + dz / l * w]; };
-          const pi = inward(p), qi = inward(q), b = pos.length / 3;
+          const pi = inward(p), qi = inward(q);
+          const mids = [[p, q], [pi, qi], [p, qi], [pi, q]].map(([u, v]) => [(u[0] + v[0]) / 2, (u[1] + v[1]) / 2, (u[2] + v[2]) / 2]);
+          if ([p, q, pi, qi, ...mids].some((r) => inWheel(...r)) || inBoxes(p, openings) || inBoxes(q, openings) || (driverWindow && inDriverCone(p) && !hugs(p, hugY))) continue;
+          const b = pos.length / 3;
           for (const dx of [-th / 2, th / 2]) [p, q, qi, pi].forEach((r) => pos.push(r[0] + dx, r[1], r[2]));
           idx.push(b, b + 1, b + 2, b, b + 2, b + 3, b + 4, b + 6, b + 5, b + 4, b + 7, b + 6, b, b + 4, b + 5, b, b + 5, b + 1);
           area += Math.hypot(q[1] - p[1], q[2] - p[2]) * w;
         }
-        if (pos.length) { const node = mesh(meshGeo(pos, idx), 'plyRib', parent); node.name = 'Rib'; node.userData.frame = true; }
+        if (pos.length) { const node = mesh(meshGeo(pos, idx), 'plyRib', parent); node.name = 'Rib'; node.userData.frame = true; if (hugY != null) node.userData.hugY = hugY; }
         bookArea('plywood', area);
-      } else T.polyline(row, rib.r || 0.012, rib.material || 'conduit', openings, driverWindow, true);
+      } else T.polyline(row, rib.r || 0.012, rib.material || 'conduit', openings, driverWindow, true, hugY);
     },
     /* Round tube along a polyline, culled where it crosses the wheel envelope or an opening. */
-    polyline(line, r, material, openings = [], driverWindow = false, frame = false) {
+    polyline(line, r, material, openings = [], driverWindow = false, frame = false, hugY = null) {
       let len = 0;
       for (let j = 0; j < line.length - 1; j++) {
         const p = line[j], q = line[j + 1];
         const mid = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2];
-        if (inWheel(...p) || inWheel(...q) || inWheel(...mid) || inBoxes(mid, openings) || (driverWindow && inDriverCone(mid))) continue;
+        if (inWheel(...p) || inWheel(...q) || inWheel(...mid) || inBoxes(mid, openings) || (driverWindow && inDriverCone(mid) && !hugs(mid, hugY))) continue;
         const a = new Vec3(...p), b = new Vec3(...q);
         if (a.distanceTo(b) < 1e-3) continue;
         const node = rod(a, b, r, renderMat(material), parent, false, 6);
         if (frame || material === 'conduit' || material === 'steel') node.userData.frame = true;
+        if (hugY != null) node.userData.hugY = hugY;
         len += a.distanceTo(b);
       }
       bookLen(material, len);
       return len;
     },
     /* Flat convex panel from 3D points (fan), double sided. Faces in the wheel envelope are dropped. */
-    panel(points, material, name = 'Panel') {
+    panel(points, material, name = 'Panel', render = null) {
       const pos = [], idx = [];
       let area = 0;
       for (let k = 1; k < points.length - 1; k++) {
@@ -152,7 +158,7 @@ export function makeToolbox(car, parent, acc) {
         const base = pos.length / 3; pos.push(...a, ...b, ...c); idx.push(base, base + 1, base + 2);
         area += tri(a, b, c);
       }
-      if (pos.length) { const node = mesh(meshGeo(pos, idx), renderMat(material), parent); node.name = name; node.userData.kitSkin = true; }
+      if (pos.length) { const node = mesh(meshGeo(pos, idx), render || renderMat(material), parent); node.name = name; node.userData.kitSkin = true; }
       bookArea(material, area);
       return area;
     },
